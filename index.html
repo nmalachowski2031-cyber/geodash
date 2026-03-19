@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Geometry Dash Wave - Enhanced</title>
+  <title>Geometry Dash Wave - FASTER</title>
   <style>
     * {
       margin: 0;
@@ -130,7 +130,7 @@
 
     <!-- Main menu -->
     <div id="menu">
-      <h1>Geometry Dash Wave</h1>
+      <h1>Geometry Dash Wave - FAST</h1>
       <p>Select Level (1–10) or Endless Mode</p>
       <button id="endless-mode-btn">Endless Mode</button>
       <div class="level-buttons" id="level-buttons"></div>
@@ -157,7 +157,6 @@
   <script>
     const canvas = document.getElementById("game-canvas");
     const ctx = canvas.getContext("2d");
-    const container = document.getElementById("game-container");
     const menuEl = document.getElementById("menu");
     const pauseOverlay = document.getElementById("pause-overlay");
     const deathOverlay = document.getElementById("death-overlay");
@@ -179,13 +178,21 @@
     let isEndlessMode = false;
 
 
-    // Wave settings
-    const WAVE_SIZE = 14;
-    const WAVE_SPEED = 4.5;
-    const WAVE_RISE_FALL = 4.2;
+    // Wave settings - 1.7x FASTER FORWARD SPEED
+    const WAVE_SIZE = 20;
+    const WAVE_RISE_FALL = 8.4;
+    const SPEED_MULTIPLIER = 1.7; // Makes everything move forward faster
 
 
-    // Enhanced Obstacle class with multiple types
+    // Wave image and rotation
+    const waveImg = new Image();
+    waveImg.src = "https://www.vhv.rs/dpng/d/479-4799969_1-geometry-dash-wave-png-download-geometry-dash.png";
+    let waveRotation = 0;
+    let targetRotation = 0;
+    const ROTATION_SPEED = 0.15;
+
+
+    // Enhanced Obstacle class
     class Obstacle {
       constructor(x, y, w, h, type = 'normal') {
         this.x = x;
@@ -196,7 +203,7 @@
         this.time = Math.random() * Math.PI * 2;
       }
       update(speed) {
-        this.x -= speed;
+        this.x -= speed * SPEED_MULTIPLIER; // FASTER forward movement
         if (this.type === 'moving') {
           this.time += 0.05;
           this.y += Math.sin(this.time) * 1.5;
@@ -237,7 +244,7 @@
     }
 
 
-    // Load high scores
+    // Load/save scores
     function loadBestScores() {
       const saved = localStorage.getItem("geometry_dash_wave_best");
       if (saved) {
@@ -252,23 +259,16 @@
       }
     }
     function saveBestScores() {
-      const data = {
-        levels: levelsBeaten.slice(),
-        progress: bestProgress.slice(),
-        endlessBest: endlessBestScore,
-      };
+      const data = { levels: levelsBeaten.slice(), progress: bestProgress.slice(), endlessBest: endlessBestScore };
       localStorage.setItem("geometry_dash_wave_best", JSON.stringify(data));
     }
-
-
     loadBestScores();
 
 
-    // Enhanced level data generation
     function generateLevelData(levelIndex) {
-      const baseSpeed = 3 + levelIndex * 0.4;
+      const baseSpeed = (3 + levelIndex * 0.4) * SPEED_MULTIPLIER; // FASTER base speed
       const obstacles = [];
-      const levelLength = 5000 + levelIndex * 800;
+      const levelLength = (5000 + levelIndex * 800) * SPEED_MULTIPLIER; // Adjust level length for speed
       const minGap = Math.max(80 - levelIndex * 5, 40);
       let x = 900 + 200;
 
@@ -279,46 +279,32 @@
         const segmentWidth = 35 + Math.random() * 25;
 
 
-        if (obstacleType === 0) { // Normal obstacles (top/bottom)
+        if (obstacleType === 0) {
           const topHeight = gapYCenter - minGap / 2;
           const bottomY = gapYCenter + minGap / 2;
           const bottomHeight = canvas.height - bottomY;
-          
-          if (topHeight > 0) {
-            obstacles.push(new Obstacle(x, 0, segmentWidth, topHeight));
-          }
-          if (bottomHeight > 0) {
-            obstacles.push(new Obstacle(x, bottomY, segmentWidth, bottomHeight));
-          }
-        } else if (obstacleType === 1) { // Spikes (top/bottom)
+          if (topHeight > 0) obstacles.push(new Obstacle(x, 0, segmentWidth, topHeight));
+          if (bottomHeight > 0) obstacles.push(new Obstacle(x, bottomY, segmentWidth, bottomHeight));
+        } else if (obstacleType === 1) {
           const topHeight = gapYCenter - minGap / 2;
           const bottomY = gapYCenter + minGap / 2;
           const bottomHeight = canvas.height - bottomY;
-          
-          if (topHeight > 15) {
-            obstacles.push(new Obstacle(x, 0, segmentWidth, topHeight, 'spike'));
-          }
-          if (bottomHeight > 15) {
-            obstacles.push(new Obstacle(x, bottomY, segmentWidth, bottomHeight, 'spike'));
-          }
-        } else if (obstacleType === 2) { // Moving obstacle (single)
+          if (topHeight > 15) obstacles.push(new Obstacle(x, 0, segmentWidth, topHeight, 'spike'));
+          if (bottomHeight > 15) obstacles.push(new Obstacle(x, bottomY, segmentWidth, bottomHeight, 'spike'));
+        } else if (obstacleType === 2) {
           obstacles.push(new Obstacle(x, gapYCenter - 30, segmentWidth, 60, 'moving'));
-        } else { // Pulsing obstacle (single)
+        } else {
           obstacles.push(new Obstacle(x, gapYCenter - 40, segmentWidth, 80, 'pulsing'));
         }
-
-
         x += 180 + Math.random() * 100;
       }
-
-
       return { scrollSpeed: baseSpeed, obstacles, length: levelLength };
     }
 
 
-    // Endless mode variables
+    // Endless mode
     let endlessObstacles = [];
-    let endlessScrollSpeed = 3;
+    let endlessScrollSpeed = 3 * SPEED_MULTIPLIER; // FASTER endless speed
     let endlessProgress = 0;
     let lastObstacleX = 0;
 
@@ -334,7 +320,6 @@
         const topHeight = gapYCenter - minGap / 2;
         const bottomY = gapYCenter + minGap / 2;
         const bottomHeight = canvas.height - bottomY;
-        
         if (topHeight > 0) {
           endlessObstacles.push(new Obstacle(lastObstacleX, 0, segmentWidth, topHeight, 
             obstacleType === 1 ? 'spike' : 'normal'));
@@ -347,15 +332,13 @@
       } else {
         endlessObstacles.push(new Obstacle(lastObstacleX, gapYCenter - 40, segmentWidth, 80, 'pulsing'));
       }
-
-
-      lastObstacleX += 180 + Math.random() * 120;
+      lastObstacleX += (180 + Math.random() * 120) * SPEED_MULTIPLIER; // Spacing adjusted for speed
     }
 
 
     function setupEndlessMode() {
       endlessObstacles = [];
-      endlessScrollSpeed = 3;
+      endlessScrollSpeed = 3 * SPEED_MULTIPLIER;
       endlessProgress = 0;
       lastObstacleX = 900 + 200;
       for (let i = 0; i < 10; i++) generateEndlessChunk();
@@ -363,22 +346,20 @@
       isAlive = true;
       gameState = "endless";
       menuEl.style.display = "none";
-      canvas.style.display = "block";
       deathOverlay.style.display = "none";
       pauseOverlay.style.display = "none";
+      waveRotation = 0;
+      targetRotation = 0;
     }
 
 
-    // Wave state
+    // Game variables
     let waveX = 120;
     let waveY = canvas.height / 2;
     let progressX = 0;
     let levelData = null;
     let isAlive = true;
     let isPaused = false;
-
-
-    // Input state
     let isMousePressed = false;
     let isSpacePressed = false;
 
@@ -394,8 +375,6 @@
 
     function playCrashSound() {
       if (!audioCtx) return;
-
-
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
       osc.connect(gain);
@@ -417,12 +396,36 @@
     }
 
 
+    // Draw rotated wave icon
+    function drawWaveIcon() {
+      const size = WAVE_SIZE * 1.5;
+      ctx.save();
+      ctx.translate(waveX, waveY);
+      ctx.rotate(waveRotation);
+      
+      if (waveImg.complete && waveImg.naturalHeight !== 0) {
+        ctx.drawImage(waveImg, -size/2, -size/2, size, size);
+      } else {
+        const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, size/2);
+        gradient.addColorStop(0, "#ffcc00");
+        gradient.addColorStop(1, "rgba(255, 204, 0, 0)");
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.moveTo(0, -size/2);
+        ctx.lineTo(-size/3, size/3);
+        ctx.lineTo(size/3, size/3);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+
     function drawLevelScene() {
       ctx.fillStyle = "#0f0f19";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
 
-      // Ground/ceiling lines
       ctx.strokeStyle = "#aaaaaa";
       ctx.lineWidth = 4;
       ctx.beginPath();
@@ -435,56 +438,24 @@
       ctx.stroke();
 
 
-      // Obstacles
-      let obstaclesToDraw = [];
-      if (isEndlessMode) {
-        obstaclesToDraw = endlessObstacles;
-      } else if (levelData && levelData.obstacles) {
-        obstaclesToDraw = levelData.obstacles;
-      }
+      let obstaclesToDraw = isEndlessMode ? endlessObstacles : (levelData?.obstacles || []);
       obstaclesToDraw.forEach(o => {
-        if (o.x + o.w > 0) o.draw(); // Only draw visible obstacles
+        if (o.x + o.w > 0) o.draw();
       });
 
 
-      // Wave
-      ctx.fillStyle = "#ffcc00";
-      ctx.fillRect(waveX - WAVE_SIZE / 2, waveY - WAVE_SIZE / 2, WAVE_SIZE, WAVE_SIZE);
+      drawWaveIcon();
 
 
-      // HUD
       if (isEndlessMode) {
-        drawTextCenter(
-          `Endless Mode - Score: ${Math.floor(endlessProgress)}`,
-          "22px Arial",
-          "#ffcc00",
-          canvas.width / 2,
-          20
-        );
-        drawTextCenter(
-          `Best: ${endlessBestScore}`,
-          "18px Arial",
-          "#00cc00",
-          canvas.width / 2,
-          45
-        );
-      } else if (!isEndlessMode) {
-        drawTextCenter(
-          `Level ${currentLevelIndex + 1}`,
-          "22px Arial",
-          "#fff",
-          80,
-          20
-        );
-        const barW = 300;
-        const barH = 12;
-        const barX = canvas.width - barW - 40;
-        const barY = 20;
+        drawTextCenter(`Endless Mode - Score: ${Math.floor(endlessProgress)}`, "22px Arial", "#ffcc00", canvas.width / 2, 20);
+        drawTextCenter(`Best: ${endlessBestScore}`, "18px Arial", "#00cc00", canvas.width / 2, 45);
+      } else {
+        drawTextCenter(`Level ${currentLevelIndex + 1}`, "22px Arial", "#fff", 80, 20);
+        const barW = 300, barH = 12, barX = canvas.width - barW - 40, barY = 20;
         ctx.strokeStyle = "#cccccc";
         ctx.lineWidth = 2;
         ctx.strokeRect(barX, barY, barW, barH);
-
-
         const ratio = Math.max(0, Math.min(1, progressX / levelData.length));
         ctx.fillStyle = "#00cc00";
         ctx.fillRect(barX, barY, barW * ratio, barH);
@@ -497,31 +468,25 @@
 
 
       const hold = isMousePressed || isSpacePressed;
-
-
       if (hold) {
         waveY -= WAVE_RISE_FALL;
+        targetRotation = -0.5;
       } else {
         waveY += WAVE_RISE_FALL;
+        targetRotation = 0.5;
       }
 
 
-      waveY = Math.max(WAVE_SIZE / 2, Math.min(canvas.height - WAVE_SIZE / 2, waveY));
+      waveRotation += (targetRotation - waveRotation) * ROTATION_SPEED;
+      waveY = Math.max(WAVE_SIZE, Math.min(canvas.height - WAVE_SIZE, waveY));
 
 
-      // Normal level mode
+      const waveRect = { x: waveX - WAVE_SIZE/2, y: waveY - WAVE_SIZE/2, w: WAVE_SIZE, h: WAVE_SIZE };
+
+
       if (!isEndlessMode) {
         progressX += levelData.scrollSpeed;
         levelData.obstacles.forEach(o => o.update(levelData.scrollSpeed));
-
-
-        // Collision
-        const waveRect = {
-          x: waveX - WAVE_SIZE / 2,
-          y: waveY - WAVE_SIZE / 2,
-          w: WAVE_SIZE,
-          h: WAVE_SIZE,
-        };
 
 
         for (const o of levelData.obstacles) {
@@ -530,12 +495,11 @@
             playCrashSound();
             gameState = "dead";
             deathOverlay.style.display = "flex";
-            break;
+            return;
           }
         }
 
 
-        // Update best progress
         const newProgress = Math.max(0, Math.min(1, progressX / levelData.length));
         if (newProgress > bestProgress[currentLevelIndex]) {
           bestProgress[currentLevelIndex] = newProgress;
@@ -543,62 +507,24 @@
         }
 
 
-        // Check level completion
         if (progressX >= levelData.length) {
           levelsBeaten[currentLevelIndex] = true;
           bestProgress[currentLevelIndex] = 1.0;
           saveBestScores();
-
-
           drawLevelScene();
-          drawTextCenter(
-            `Level ${currentLevelIndex + 1} Complete!`,
-            "30px Arial",
-            "#00cc00",
-            canvas.width / 2,
-            canvas.height / 2 - 20
-          );
-          drawTextCenter(
-            "Click or press any key to continue",
-            "20px Arial",
-            "#ffffff",
-            canvas.width / 2,
-            canvas.height / 2 + 20
-          );
+          drawTextCenter(`Level ${currentLevelIndex + 1} Complete!`, "30px Arial", "#00cc00", canvas.width / 2, canvas.height / 2 - 20);
+          drawTextCenter("Click or press any key to continue", "20px Arial", "#ffffff", canvas.width / 2, canvas.height / 2 + 20);
           gameState = "menu";
-          setTimeout(() => {
-            renderMenu();
-            updateButtons();
-          }, 100);
+          setTimeout(() => { renderMenu(); updateButtons(); }, 100);
         }
-      }
-      // Endless mode
-      else {
+      } else {
         endlessProgress += endlessScrollSpeed;
-        endlessScrollSpeed = 3 + endlessProgress / 3000;
+        endlessScrollSpeed = (3 + endlessProgress / 3000) * SPEED_MULTIPLIER;
 
 
-        // Remove obstacles far off screen
-        while (endlessObstacles.length && endlessObstacles[0].x < -100) {
-          endlessObstacles.shift();
-        }
-        // Generate new chunks as needed
-        while (lastObstacleX < endlessProgress + 1000) {
-          generateEndlessChunk();
-        }
-
-
-        // Update obstacles
+        while (endlessObstacles.length && endlessObstacles[0].x < -100) endlessObstacles.shift();
+        while (lastObstacleX < endlessProgress + 1000) generateEndlessChunk();
         endlessObstacles.forEach(o => o.update(endlessScrollSpeed));
-
-
-        // Collision
-        const waveRect = {
-          x: waveX - WAVE_SIZE / 2,
-          y: waveY - WAVE_SIZE / 2,
-          w: WAVE_SIZE,
-          h: WAVE_SIZE,
-        };
 
 
         for (const o of endlessObstacles) {
@@ -608,43 +534,15 @@
               endlessBestScore = Math.floor(endlessProgress);
               saveBestScores();
             }
-
-
             drawLevelScene();
-            drawTextCenter(
-              `Endless Mode`,
-              "30px Arial",
-              "#ffcc00",
-              canvas.width / 2,
-              canvas.height / 2 - 60
-            );
-            drawTextCenter(
-              `Score: ${Math.floor(endlessProgress)}`,
-              "24px Arial",
-              "#ffffff",
-              canvas.width / 2,
-              canvas.height / 2 - 30
-            );
-            drawTextCenter(
-              `Best: ${endlessBestScore}`,
-              "24px Arial",
-              "#00cc00",
-              canvas.width / 2,
-              canvas.height / 2
-            );
-            drawTextCenter(
-              "Click or press any key to continue",
-              "20px Arial",
-              "#ffffff",
-              canvas.width / 2,
-              canvas.height / 2 + 40
-            );
-
-
+            drawTextCenter("Endless Mode", "30px Arial", "#ffcc00", canvas.width / 2, canvas.height / 2 - 60);
+            drawTextCenter(`Score: ${Math.floor(endlessProgress)}`, "24px Arial", "#ffffff", canvas.width / 2, canvas.height / 2 - 30);
+            drawTextCenter(`Best: ${endlessBestScore}`, "24px Arial", "#00cc00", canvas.width / 2, canvas.height / 2);
+            drawTextCenter("Click or press any key to continue", "20px Arial", "#ffffff", canvas.width / 2, canvas.height / 2 + 40);
             playCrashSound();
             gameState = "dead";
             deathOverlay.style.display = "flex";
-            break;
+            return;
           }
         }
       }
@@ -652,11 +550,9 @@
 
 
     function gameLoop() {
-      if (gameState === "playing" || gameState === "endless") {
-        if (!isPaused) {
-          updateWave();
-          drawLevelScene();
-        }
+      if (["playing", "endless"].includes(gameState) && !isPaused) {
+        updateWave();
+        drawLevelScene();
       } else if (gameState === "menu") {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
       }
@@ -664,21 +560,16 @@
     }
 
 
-    // Menu & buttons
+    // Menu functions
     function updateButtons() {
       levelButtonsEl.innerHTML = "";
       for (let i = 0; i < NUM_LEVELS; i++) {
         const btn = document.createElement("button");
         btn.className = "level-button";
         btn.textContent = `Level ${i + 1}`;
-
-
         const unlocked = i === 0 || levelsBeaten[i - 1];
-        if (!unlocked) {
-          btn.classList.add("locked");
-        } else if (levelsBeaten[i]) {
-          btn.classList.add("beaten");
-        }
+        if (!unlocked) btn.classList.add("locked");
+        else if (levelsBeaten[i]) btn.classList.add("beaten");
 
 
         const progress = Math.floor(bestProgress[i] * 100);
@@ -687,9 +578,7 @@
           p.className = "best-score";
           p.textContent = `Best: ${progress}%`;
           const wrapper = document.createElement("div");
-          wrapper.style.display = "flex";
-          wrapper.style.flexDirection = "column";
-          wrapper.style.alignItems = "center";
+          wrapper.style.cssText = "display:flex;flex-direction:column;align-items:center;";
           wrapper.appendChild(btn);
           wrapper.appendChild(p);
           levelButtonsEl.appendChild(wrapper);
@@ -698,10 +587,7 @@
         }
 
 
-        btn.addEventListener("click", () => {
-          if (!unlocked) return;
-          startLevel(i);
-        });
+        btn.addEventListener("click", () => { if (unlocked) startLevel(i); });
       }
     }
 
@@ -728,39 +614,29 @@
       menuEl.style.display = "none";
       pauseOverlay.style.display = "none";
       deathOverlay.style.display = "none";
+      waveRotation = 0;
+      targetRotation = 0;
     }
 
 
     // Event listeners
     endlessModeBtn.addEventListener("click", setupEndlessMode);
-
-
     resumeBtn.addEventListener("click", () => {
       isPaused = false;
       pauseOverlay.style.display = "none";
       gameState = isEndlessMode ? "endless" : "playing";
     });
-
-
     menuBtn.addEventListener("click", renderMenu);
     menuBtnD.addEventListener("click", renderMenu);
-
-
     restartBtn.addEventListener("click", () => {
       deathOverlay.style.display = "none";
-      if (isEndlessMode) {
-        setupEndlessMode();
-      } else {
-        startLevel(currentLevelIndex);
-      }
+      if (isEndlessMode) setupEndlessMode();
+      else startLevel(currentLevelIndex);
     });
 
 
-    // Input handlers
     canvas.addEventListener("mousedown", () => { isMousePressed = true; });
     window.addEventListener("mouseup", () => { isMousePressed = false; });
-
-
     window.addEventListener("keydown", (e) => {
       if (e.code === "Space") {
         isSpacePressed = true;
@@ -771,15 +647,13 @@
           isPaused = false;
           pauseOverlay.style.display = "none";
           gameState = isEndlessMode ? "endless" : "playing";
-        } else if (gameState === "playing" || gameState === "endless") {
+        } else if (["playing", "endless"].includes(gameState)) {
           isPaused = true;
           pauseOverlay.style.display = "flex";
           gameState = "paused";
         }
       }
     });
-
-
     window.addEventListener("keyup", (e) => {
       if (e.code === "Space") {
         isSpacePressed = false;
