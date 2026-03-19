@@ -2,16 +2,12 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Geometry Dash Wave - FASTER</title>
+  <title>Geometry Dash Wave – Spikes</title>
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: Arial, sans-serif;
-      background-color: #111;
+      background-color: #000;
       color: #fff;
       overflow: hidden;
     }
@@ -21,21 +17,20 @@
       height: 500px;
       margin: 20px auto;
       border: 1px solid #444;
-      background-color: #0f0f19;
+      background: radial-gradient(circle at center, #033b7a 0, #020615 60%);
     }
-    canvas {
-      display: block;
-    }
-    #menu {
+    canvas { display: block; }
+    #menu, #pause-overlay, #death-overlay {
       position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background-color: rgba(15, 15, 25, 0.95);
+      top: 0; left: 0;
+      width: 100%; height: 100%;
       display: flex;
       flex-direction: column;
       align-items: center;
+      justify-content: center;
+    }
+    #menu {
+      background-color: rgba(5, 10, 30, 0.96);
       justify-content: flex-start;
       padding-top: 80px;
     }
@@ -45,7 +40,7 @@
       margin-bottom: 10px;
     }
     #menu p {
-      font-size: 22px;
+      font-size: 20px;
       margin-bottom: 20px;
       color: #ccc;
     }
@@ -55,49 +50,40 @@
       justify-content: center;
       gap: 20px 10px;
     }
-    #endless-mode-btn {
-      width: 200px;
+    #endless-mode-btn,
+    .level-button {
       height: 50px;
       border-radius: 8px;
       border: 2px solid #fff;
-      background-color: #00cc00;
       color: #fff;
       font-size: 18px;
       cursor: pointer;
-      margin: 20px 0;
+    }
+    #endless-mode-btn {
+      width: 200px;
+      background-color: #00cc00;
+      margin-bottom: 20px;
     }
     .level-button {
       width: 150px;
-      height: 50px;
-      border-radius: 8px;
-      border: 2px solid #fff;
       background-color: #0077cc;
-      color: #fff;
-      font-size: 18px;
-      cursor: pointer;
     }
     .level-button.locked {
-      background-color: #aaa;
+      background-color: #666;
       cursor: not-allowed;
     }
     .level-button.beaten {
-      border-color: #00cc00;
+      border-color: #00ff99;
+    }
+    .best-score {
+      font-size: 14px;
+      color: #00ff99;
+      margin-top: 2px;
     }
     #pause-overlay,
     #death-overlay {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
       background-color: rgba(0, 0, 0, 0.85);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
       font-size: 20px;
-    }
-    #death-overlay {
       display: none;
     }
     #pause-overlay button,
@@ -110,16 +96,8 @@
       color: #fff;
       cursor: pointer;
     }
-    #death-overlay button {
-      background-color: #cc0000;
-    }
     #death-overlay button.green {
       background-color: #00cc00;
-    }
-    .best-score {
-      font-size: 16px;
-      color: #00cc00;
-      margin-top: 2px;
     }
   </style>
 </head>
@@ -128,25 +106,22 @@
     <canvas id="game-canvas" width="900" height="500"></canvas>
 
 
-    <!-- Main menu -->
     <div id="menu">
-      <h1>Geometry Dash Wave - FAST</h1>
+      <h1>Geometry Dash Wave</h1>
       <p>Select Level (1–10) or Endless Mode</p>
       <button id="endless-mode-btn">Endless Mode</button>
       <div class="level-buttons" id="level-buttons"></div>
     </div>
 
 
-    <!-- Pause overlay -->
-    <div id="pause-overlay" style="display: none;">
+    <div id="pause-overlay">
       <h2>Paused</h2>
       <button id="resume-btn">Resume</button>
       <button id="menu-btn">Main Menu</button>
     </div>
 
 
-    <!-- Death overlay -->
-    <div id="death-overlay" style="display: none;">
+    <div id="death-overlay">
       <h2>You Died!</h2>
       <button id="restart-btn">Restart</button>
       <button id="menu-btn-d" class="green">Main Menu</button>
@@ -157,6 +132,8 @@
   <script>
     const canvas = document.getElementById("game-canvas");
     const ctx = canvas.getContext("2d");
+
+
     const menuEl = document.getElementById("menu");
     const pauseOverlay = document.getElementById("pause-overlay");
     const deathOverlay = document.getElementById("death-overlay");
@@ -168,177 +145,227 @@
     const endlessModeBtn = document.getElementById("endless-mode-btn");
 
 
-    // Game state
     const NUM_LEVELS = 10;
     let levelsBeaten = Array(NUM_LEVELS).fill(false);
     let bestProgress = Array(NUM_LEVELS).fill(0);
     let endlessBestScore = 0;
-    let gameState = "menu";
+
+
+    let gameState = "menu"; // menu, playing, endless, paused, dead
     let currentLevelIndex = 0;
     let isEndlessMode = false;
 
 
-    // Wave settings - 1.7x FASTER FORWARD SPEED
+    // Wave settings (Y roughly 2x, forward speed handled in scrollSpeed)
     const WAVE_SIZE = 20;
     const WAVE_RISE_FALL = 8.4;
-    const SPEED_MULTIPLIER = 1.7; // Makes everything move forward faster
+    const SPEED_MULTIPLIER = 1.7;
 
 
-    // Wave image and rotation
+    // Load wave icon with transparent background (PNG)
     const waveImg = new Image();
-    waveImg.src = "https://www.vhv.rs/dpng/d/479-4799969_1-geometry-dash-wave-png-download-geometry-dash.png";
+    waveImg.src =
+      "https://www.vhv.rs/dpng/d/479-4799969_1-geometry-dash-wave-png-download-geometry-dash.png";
+
+
     let waveRotation = 0;
     let targetRotation = 0;
     const ROTATION_SPEED = 0.15;
 
 
-    // Enhanced Obstacle class
     class Obstacle {
-      constructor(x, y, w, h, type = 'normal') {
+      constructor(x, y, w, h, type = "spikeTop") {
         this.x = x;
         this.y = y;
         this.w = w;
         this.h = h;
-        this.type = type;
-        this.time = Math.random() * Math.PI * 2;
+        this.type = type; // spikeTop, spikeBottom, normal
       }
+
+
       update(speed) {
-        this.x -= speed * SPEED_MULTIPLIER; // FASTER forward movement
-        if (this.type === 'moving') {
-          this.time += 0.05;
-          this.y += Math.sin(this.time) * 1.5;
-        } else if (this.type === 'pulsing') {
-          this.time += 0.08;
-          this.w = 25 + Math.sin(this.time) * 12;
-          this.h += Math.sin(this.time + Math.PI) * 8;
-        }
+        const effectiveSpeed = speed * SPEED_MULTIPLIER;
+        this.x -= effectiveSpeed;
       }
+
+
+      drawSpikes(isTop) {
+        const spikeSize = 18;
+        const spikes = Math.max(2, Math.floor(this.w / spikeSize));
+
+
+        // dark inner block
+        ctx.fillStyle = "#050812";
+        ctx.fillRect(this.x, this.y, this.w, this.h);
+
+
+        // neon spike edge
+        ctx.fillStyle = "#00bfff";
+        ctx.strokeStyle = "#00ffff";
+        ctx.lineWidth = 2;
+
+
+        ctx.beginPath();
+        if (isTop) {
+          ctx.moveTo(this.x, this.y + this.h);
+          let px = this.x;
+          for (let i = 0; i < spikes; i++) {
+            const mid = px + spikeSize / 2;
+            const next = px + spikeSize;
+            ctx.lineTo(mid, this.y + this.h - spikeSize);
+            ctx.lineTo(next, this.y + this.h);
+            px = next;
+          }
+        } else {
+          ctx.moveTo(this.x, this.y);
+          let px = this.x;
+          for (let i = 0; i < spikes; i++) {
+            const mid = px + spikeSize / 2;
+            const next = px + spikeSize;
+            ctx.lineTo(mid, this.y + spikeSize);
+            ctx.lineTo(next, this.y);
+            px = next;
+          }
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+      }
+
+
       draw() {
-        if (this.type === 'spike') {
-          ctx.fillStyle = "#ff4444";
-          ctx.fillRect(this.x, this.y, this.w, this.h);
-          ctx.fillStyle = "#ff6666";
-          ctx.beginPath();
-          ctx.moveTo(this.x + this.w/2, this.y);
-          ctx.lineTo(this.x, this.y + 15);
-          ctx.lineTo(this.x + this.w, this.y + 15);
-          ctx.fill();
-        } else if (this.type === 'moving') {
-          ctx.fillStyle = "#44ff44";
-          ctx.fillRect(this.x, this.y, this.w, this.h);
-        } else if (this.type === 'pulsing') {
-          const pulse = 0.7 + Math.sin(this.time * 2) * 0.3;
-          ctx.fillStyle = `rgba(255, 128, 0, ${pulse})`;
-          ctx.fillRect(this.x, this.y, this.w, this.h);
+        if (this.type === "spikeTop") {
+          this.drawSpikes(true);
+        } else if (this.type === "spikeBottom") {
+          this.drawSpikes(false);
         } else {
           ctx.fillStyle = "#cc1111";
           ctx.fillRect(this.x, this.y, this.w, this.h);
         }
       }
+
+
       collidesWith(waveRect) {
-        return waveRect.x < this.x + this.w &&
-               waveRect.x + waveRect.w > this.x &&
-               waveRect.y < this.y + this.h &&
-               waveRect.y + waveRect.h > this.y;
+        return (
+          waveRect.x < this.x + this.w &&
+          waveRect.x + waveRect.w > this.x &&
+          waveRect.y < this.y + this.h &&
+          waveRect.y + waveRect.h > this.y
+        );
       }
     }
 
 
-    // Load/save scores
+    // scores in localStorage
     function loadBestScores() {
       const saved = localStorage.getItem("geometry_dash_wave_best");
-      if (saved) {
-        try {
-          const data = JSON.parse(saved);
-          if (data.levels && data.progress && data.endlessBest != null) {
-            levelsBeaten = data.levels;
-            bestProgress = data.progress;
-            endlessBestScore = data.endlessBest;
-          }
-        } catch (e) {}
-      }
+      if (!saved) return;
+      try {
+        const data = JSON.parse(saved);
+        if (data.levels && data.progress && data.endlessBest != null) {
+          levelsBeaten = data.levels;
+          bestProgress = data.progress;
+          endlessBestScore = data.endlessBest;
+        }
+      } catch {}
     }
     function saveBestScores() {
-      const data = { levels: levelsBeaten.slice(), progress: bestProgress.slice(), endlessBest: endlessBestScore };
+      const data = {
+        levels: levelsBeaten.slice(),
+        progress: bestProgress.slice(),
+        endlessBest: endlessBestScore,
+      };
       localStorage.setItem("geometry_dash_wave_best", JSON.stringify(data));
     }
     loadBestScores();
 
 
     function generateLevelData(levelIndex) {
-      const baseSpeed = (3 + levelIndex * 0.4) * SPEED_MULTIPLIER; // FASTER base speed
+      const baseSpeed = (3 + levelIndex * 0.4);
       const obstacles = [];
-      const levelLength = (5000 + levelIndex * 800) * SPEED_MULTIPLIER; // Adjust level length for speed
+
+
+      const levelLength = (5000 + levelIndex * 800) * SPEED_MULTIPLIER;
       const minGap = Math.max(80 - levelIndex * 5, 40);
+      const maxGap = Math.max(160 - levelIndex * 6, minGap + 5);
+
+
       let x = 900 + 200;
 
 
       while (x < levelLength) {
         const gapYCenter = 90 + Math.random() * (canvas.height - 180);
-        const obstacleType = Math.floor(Math.random() * 4);
-        const segmentWidth = 35 + Math.random() * 25;
+        const segmentWidth = 50 + Math.random() * 40;
 
 
-        if (obstacleType === 0) {
-          const topHeight = gapYCenter - minGap / 2;
-          const bottomY = gapYCenter + minGap / 2;
-          const bottomHeight = canvas.height - bottomY;
-          if (topHeight > 0) obstacles.push(new Obstacle(x, 0, segmentWidth, topHeight));
-          if (bottomHeight > 0) obstacles.push(new Obstacle(x, bottomY, segmentWidth, bottomHeight));
-        } else if (obstacleType === 1) {
-          const topHeight = gapYCenter - minGap / 2;
-          const bottomY = gapYCenter + minGap / 2;
-          const bottomHeight = canvas.height - bottomY;
-          if (topHeight > 15) obstacles.push(new Obstacle(x, 0, segmentWidth, topHeight, 'spike'));
-          if (bottomHeight > 15) obstacles.push(new Obstacle(x, bottomY, segmentWidth, bottomHeight, 'spike'));
-        } else if (obstacleType === 2) {
-          obstacles.push(new Obstacle(x, gapYCenter - 30, segmentWidth, 60, 'moving'));
-        } else {
-          obstacles.push(new Obstacle(x, gapYCenter - 40, segmentWidth, 80, 'pulsing'));
+        const topHeight = gapYCenter - minGap / 2;
+        const bottomY = gapYCenter + minGap / 2;
+        const bottomHeight = canvas.height - bottomY;
+
+
+        if (topHeight > 0) {
+          obstacles.push(
+            new Obstacle(x, 0, segmentWidth, topHeight, "spikeTop")
+          );
         }
-        x += 180 + Math.random() * 100;
+        if (bottomHeight > 0) {
+          obstacles.push(
+            new Obstacle(x, bottomY, segmentWidth, bottomHeight, "spikeBottom")
+          );
+        }
+
+
+        x += 180 + Math.random() * (maxGap - 180);
       }
+
+
       return { scrollSpeed: baseSpeed, obstacles, length: levelLength };
     }
 
 
-    // Endless mode
+    // endless mode
     let endlessObstacles = [];
-    let endlessScrollSpeed = 3 * SPEED_MULTIPLIER; // FASTER endless speed
+    let endlessScrollSpeed = 3;
     let endlessProgress = 0;
     let lastObstacleX = 0;
 
 
     function generateEndlessChunk() {
-      const obstacleType = Math.floor(Math.random() * 4);
-      const segmentWidth = 40 + Math.random() * 20;
+      const segmentWidth = 50 + Math.random() * 40;
       const gapYCenter = 90 + Math.random() * (canvas.height - 180);
+      const minGap = 60;
 
 
-      if (obstacleType === 0 || obstacleType === 1) {
-        const minGap = 60;
-        const topHeight = gapYCenter - minGap / 2;
-        const bottomY = gapYCenter + minGap / 2;
-        const bottomHeight = canvas.height - bottomY;
-        if (topHeight > 0) {
-          endlessObstacles.push(new Obstacle(lastObstacleX, 0, segmentWidth, topHeight, 
-            obstacleType === 1 ? 'spike' : 'normal'));
-        }
-        if (bottomHeight > 0) {
-          endlessObstacles.push(new Obstacle(lastObstacleX, bottomY, segmentWidth, bottomHeight));
-        }
-      } else if (obstacleType === 2) {
-        endlessObstacles.push(new Obstacle(lastObstacleX, gapYCenter - 30, segmentWidth, 60, 'moving'));
-      } else {
-        endlessObstacles.push(new Obstacle(lastObstacleX, gapYCenter - 40, segmentWidth, 80, 'pulsing'));
+      const topHeight = gapYCenter - minGap / 2;
+      const bottomY = gapYCenter + minGap / 2;
+      const bottomHeight = canvas.height - bottomY;
+
+
+      if (topHeight > 0) {
+        endlessObstacles.push(
+          new Obstacle(lastObstacleX, 0, segmentWidth, topHeight, "spikeTop")
+        );
       }
-      lastObstacleX += (180 + Math.random() * 120) * SPEED_MULTIPLIER; // Spacing adjusted for speed
+      if (bottomHeight > 0) {
+        endlessObstacles.push(
+          new Obstacle(
+            lastObstacleX,
+            bottomY,
+            segmentWidth,
+            bottomHeight,
+            "spikeBottom"
+          )
+        );
+      }
+
+
+      lastObstacleX += (180 + Math.random() * 120) * SPEED_MULTIPLIER;
     }
 
 
     function setupEndlessMode() {
       endlessObstacles = [];
-      endlessScrollSpeed = 3 * SPEED_MULTIPLIER;
+      endlessScrollSpeed = 3;
       endlessProgress = 0;
       lastObstacleX = 900 + 200;
       for (let i = 0; i < 10; i++) generateEndlessChunk();
@@ -353,24 +380,24 @@
     }
 
 
-    // Game variables
+    // wave state
     let waveX = 120;
     let waveY = canvas.height / 2;
     let progressX = 0;
     let levelData = null;
     let isAlive = true;
     let isPaused = false;
+
+
     let isMousePressed = false;
     let isSpacePressed = false;
 
 
-    // Sound
+    // simple crash sound
     let audioCtx;
     try {
       audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    } catch (e) {
-      audioCtx = null;
-    }
+    } catch {}
 
 
     function playCrashSound() {
@@ -379,12 +406,18 @@
       const gain = audioCtx.createGain();
       osc.connect(gain);
       gain.connect(audioCtx.destination);
-      osc.frequency.setValueAtTime(120, audioCtx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.3);
-      gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+      osc.frequency.setValueAtTime(160, audioCtx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(
+        60,
+        audioCtx.currentTime + 0.25
+      );
+      gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(
+        0.01,
+        audioCtx.currentTime + 0.25
+      );
       osc.start();
-      osc.stop(audioCtx.currentTime + 0.3);
+      osc.stop(audioCtx.currentTime + 0.25);
     }
 
 
@@ -396,24 +429,21 @@
     }
 
 
-    // Draw rotated wave icon
     function drawWaveIcon() {
-      const size = WAVE_SIZE * 1.5;
+      const size = WAVE_SIZE * 1.6;
       ctx.save();
       ctx.translate(waveX, waveY);
       ctx.rotate(waveRotation);
-      
+
+
       if (waveImg.complete && waveImg.naturalHeight !== 0) {
-        ctx.drawImage(waveImg, -size/2, -size/2, size, size);
+        ctx.drawImage(waveImg, -size / 2, -size / 2, size, size);
       } else {
-        const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, size/2);
-        gradient.addColorStop(0, "#ffcc00");
-        gradient.addColorStop(1, "rgba(255, 204, 0, 0)");
-        ctx.fillStyle = gradient;
+        ctx.fillStyle = "#ffcc00";
         ctx.beginPath();
-        ctx.moveTo(0, -size/2);
-        ctx.lineTo(-size/3, size/3);
-        ctx.lineTo(size/3, size/3);
+        ctx.moveTo(0, -size / 2);
+        ctx.lineTo(-size / 3, size / 3);
+        ctx.lineTo(size / 3, size / 3);
         ctx.closePath();
         ctx.fill();
       }
@@ -422,12 +452,23 @@
 
 
     function drawLevelScene() {
-      ctx.fillStyle = "#0f0f19";
+      // background
+      ctx.fillStyle = "#021026";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
 
-      ctx.strokeStyle = "#aaaaaa";
-      ctx.lineWidth = 4;
+      // circular lines for GD vibe
+      ctx.strokeStyle = "rgba(0,180,255,0.25)";
+      for (let r = 80; r < 600; r += 60) {
+        ctx.beginPath();
+        ctx.arc(canvas.width / 2, canvas.height / 2, r, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+
+      // ground/ceiling
+      ctx.strokeStyle = "#0ff";
+      ctx.lineWidth = 3;
       ctx.beginPath();
       ctx.moveTo(0, 0);
       ctx.lineTo(canvas.width, 0);
@@ -438,26 +479,56 @@
       ctx.stroke();
 
 
-      let obstaclesToDraw = isEndlessMode ? endlessObstacles : (levelData?.obstacles || []);
-      obstaclesToDraw.forEach(o => {
-        if (o.x + o.w > 0) o.draw();
+      // obstacles
+      let obstaclesToDraw = [];
+      if (isEndlessMode) {
+        obstaclesToDraw = endlessObstacles;
+      } else if (levelData && levelData.obstacles) {
+        obstaclesToDraw = levelData.obstacles;
+      }
+      obstaclesToDraw.forEach((o) => {
+        if (o.x + o.w > -50 && o.x < canvas.width + 50) o.draw();
       });
 
 
+      // player
       drawWaveIcon();
 
 
       if (isEndlessMode) {
-        drawTextCenter(`Endless Mode - Score: ${Math.floor(endlessProgress)}`, "22px Arial", "#ffcc00", canvas.width / 2, 20);
-        drawTextCenter(`Best: ${endlessBestScore}`, "18px Arial", "#00cc00", canvas.width / 2, 45);
+        drawTextCenter(
+          `Endless – Score: ${Math.floor(endlessProgress)}`,
+          "20px Arial",
+          "#ffcc00",
+          canvas.width / 2,
+          24
+        );
+        drawTextCenter(
+          `Best: ${endlessBestScore}`,
+          "16px Arial",
+          "#00ff99",
+          canvas.width / 2,
+          46
+        );
       } else {
-        drawTextCenter(`Level ${currentLevelIndex + 1}`, "22px Arial", "#fff", 80, 20);
-        const barW = 300, barH = 12, barX = canvas.width - barW - 40, barY = 20;
-        ctx.strokeStyle = "#cccccc";
-        ctx.lineWidth = 2;
+        drawTextCenter(
+          `Level ${currentLevelIndex + 1}`,
+          "20px Arial",
+          "#ffffff",
+          80,
+          24
+        );
+        const barW = 260;
+        const barH = 10;
+        const barX = canvas.width - barW - 40;
+        const barY = 24;
+        ctx.strokeStyle = "#aaaaaa";
         ctx.strokeRect(barX, barY, barW, barH);
-        const ratio = Math.max(0, Math.min(1, progressX / levelData.length));
-        ctx.fillStyle = "#00cc00";
+        const ratio = Math.max(
+          0,
+          Math.min(1, progressX / (levelData ? levelData.length : 1))
+        );
+        ctx.fillStyle = "#00ff99";
         ctx.fillRect(barX, barY, barW * ratio, barH);
       }
     }
@@ -481,12 +552,17 @@
       waveY = Math.max(WAVE_SIZE, Math.min(canvas.height - WAVE_SIZE, waveY));
 
 
-      const waveRect = { x: waveX - WAVE_SIZE/2, y: waveY - WAVE_SIZE/2, w: WAVE_SIZE, h: WAVE_SIZE };
+      const waveRect = {
+        x: waveX - WAVE_SIZE / 2,
+        y: waveY - WAVE_SIZE / 2,
+        w: WAVE_SIZE,
+        h: WAVE_SIZE,
+      };
 
 
-      if (!isEndlessMode) {
-        progressX += levelData.scrollSpeed;
-        levelData.obstacles.forEach(o => o.update(levelData.scrollSpeed));
+      if (!isEndlessMode && levelData) {
+        progressX += levelData.scrollSpeed * SPEED_MULTIPLIER;
+        levelData.obstacles.forEach((o) => o.update(levelData.scrollSpeed));
 
 
         for (const o of levelData.obstacles) {
@@ -500,7 +576,10 @@
         }
 
 
-        const newProgress = Math.max(0, Math.min(1, progressX / levelData.length));
+        const newProgress = Math.max(
+          0,
+          Math.min(1, progressX / levelData.length)
+        );
         if (newProgress > bestProgress[currentLevelIndex]) {
           bestProgress[currentLevelIndex] = newProgress;
           saveBestScores();
@@ -509,22 +588,26 @@
 
         if (progressX >= levelData.length) {
           levelsBeaten[currentLevelIndex] = true;
-          bestProgress[currentLevelIndex] = 1.0;
+          bestProgress[currentLevelIndex] = 1;
           saveBestScores();
-          drawLevelScene();
-          drawTextCenter(`Level ${currentLevelIndex + 1} Complete!`, "30px Arial", "#00cc00", canvas.width / 2, canvas.height / 2 - 20);
-          drawTextCenter("Click or press any key to continue", "20px Arial", "#ffffff", canvas.width / 2, canvas.height / 2 + 20);
           gameState = "menu";
-          setTimeout(() => { renderMenu(); updateButtons(); }, 100);
+          setTimeout(() => {
+            renderMenu();
+            updateButtons();
+          }, 200);
         }
-      } else {
-        endlessProgress += endlessScrollSpeed;
-        endlessScrollSpeed = (3 + endlessProgress / 3000) * SPEED_MULTIPLIER;
+      } else if (isEndlessMode) {
+        endlessProgress += endlessScrollSpeed * SPEED_MULTIPLIER;
+        endlessScrollSpeed = 3 + endlessProgress / 3000;
 
 
-        while (endlessObstacles.length && endlessObstacles[0].x < -100) endlessObstacles.shift();
-        while (lastObstacleX < endlessProgress + 1000) generateEndlessChunk();
-        endlessObstacles.forEach(o => o.update(endlessScrollSpeed));
+        while (endlessObstacles.length && endlessObstacles[0].x < -150) {
+          endlessObstacles.shift();
+        }
+        while (lastObstacleX < endlessProgress + 1000) {
+          generateEndlessChunk();
+        }
+        endlessObstacles.forEach((o) => o.update(endlessScrollSpeed));
 
 
         for (const o of endlessObstacles) {
@@ -534,11 +617,6 @@
               endlessBestScore = Math.floor(endlessProgress);
               saveBestScores();
             }
-            drawLevelScene();
-            drawTextCenter("Endless Mode", "30px Arial", "#ffcc00", canvas.width / 2, canvas.height / 2 - 60);
-            drawTextCenter(`Score: ${Math.floor(endlessProgress)}`, "24px Arial", "#ffffff", canvas.width / 2, canvas.height / 2 - 30);
-            drawTextCenter(`Best: ${endlessBestScore}`, "24px Arial", "#00cc00", canvas.width / 2, canvas.height / 2);
-            drawTextCenter("Click or press any key to continue", "20px Arial", "#ffffff", canvas.width / 2, canvas.height / 2 + 40);
             playCrashSound();
             gameState = "dead";
             deathOverlay.style.display = "flex";
@@ -550,17 +628,14 @@
 
 
     function gameLoop() {
-      if (["playing", "endless"].includes(gameState) && !isPaused) {
+      if ((gameState === "playing" || gameState === "endless") && !isPaused) {
         updateWave();
         drawLevelScene();
-      } else if (gameState === "menu") {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
       }
       requestAnimationFrame(gameLoop);
     }
 
 
-    // Menu functions
     function updateButtons() {
       levelButtonsEl.innerHTML = "";
       for (let i = 0; i < NUM_LEVELS; i++) {
@@ -573,31 +648,33 @@
 
 
         const progress = Math.floor(bestProgress[i] * 100);
+        let wrapper = btn;
         if (progress > 0) {
           const p = document.createElement("div");
           p.className = "best-score";
           p.textContent = `Best: ${progress}%`;
-          const wrapper = document.createElement("div");
-          wrapper.style.cssText = "display:flex;flex-direction:column;align-items:center;";
+          wrapper = document.createElement("div");
+          wrapper.style.display = "flex";
+          wrapper.style.flexDirection = "column";
+          wrapper.style.alignItems = "center";
           wrapper.appendChild(btn);
           wrapper.appendChild(p);
-          levelButtonsEl.appendChild(wrapper);
-        } else {
-          levelButtonsEl.appendChild(btn);
         }
+        levelButtonsEl.appendChild(wrapper);
 
 
-        btn.addEventListener("click", () => { if (unlocked) startLevel(i); });
+        btn.addEventListener("click", () => {
+          if (!unlocked) return;
+          startLevel(i);
+        });
       }
     }
 
 
     function renderMenu() {
       menuEl.style.display = "flex";
-      canvas.style.display = "block";
       pauseOverlay.style.display = "none";
       deathOverlay.style.display = "none";
-      gameState = "menu";
     }
 
 
@@ -612,22 +689,28 @@
       isPaused = false;
       gameState = "playing";
       menuEl.style.display = "none";
-      pauseOverlay.style.display = "none";
       deathOverlay.style.display = "none";
+      pauseOverlay.style.display = "none";
       waveRotation = 0;
       targetRotation = 0;
     }
 
 
-    // Event listeners
+    // UI events
     endlessModeBtn.addEventListener("click", setupEndlessMode);
     resumeBtn.addEventListener("click", () => {
       isPaused = false;
       pauseOverlay.style.display = "none";
       gameState = isEndlessMode ? "endless" : "playing";
     });
-    menuBtn.addEventListener("click", renderMenu);
-    menuBtnD.addEventListener("click", renderMenu);
+    menuBtn.addEventListener("click", () => {
+      gameState = "menu";
+      renderMenu();
+    });
+    menuBtnD.addEventListener("click", () => {
+      gameState = "menu";
+      renderMenu();
+    });
     restartBtn.addEventListener("click", () => {
       deathOverlay.style.display = "none";
       if (isEndlessMode) setupEndlessMode();
@@ -635,8 +718,11 @@
     });
 
 
+    // input
     canvas.addEventListener("mousedown", () => { isMousePressed = true; });
     window.addEventListener("mouseup", () => { isMousePressed = false; });
+
+
     window.addEventListener("keydown", (e) => {
       if (e.code === "Space") {
         isSpacePressed = true;
@@ -647,13 +733,15 @@
           isPaused = false;
           pauseOverlay.style.display = "none";
           gameState = isEndlessMode ? "endless" : "playing";
-        } else if (["playing", "endless"].includes(gameState)) {
+        } else if (gameState === "playing" || gameState === "endless") {
           isPaused = true;
           pauseOverlay.style.display = "flex";
           gameState = "paused";
         }
       }
     });
+
+
     window.addEventListener("keyup", (e) => {
       if (e.code === "Space") {
         isSpacePressed = false;
@@ -662,7 +750,7 @@
     });
 
 
-    // Initialize
+    // init
     updateButtons();
     renderMenu();
     requestAnimationFrame(gameLoop);
