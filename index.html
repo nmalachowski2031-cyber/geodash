@@ -1,759 +1,219 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Geometry Dash Wave – Spikes</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: Arial, sans-serif;
-      background-color: #000;
-      color: #fff;
-      overflow: hidden;
-    }
-    #game-container {
-      position: relative;
-      width: 900px;
-      height: 500px;
-      margin: 20px auto;
-      border: 1px solid #444;
-      background: radial-gradient(circle at center, #033b7a 0, #020615 60%);
-    }
-    canvas { display: block; }
-    #menu, #pause-overlay, #death-overlay {
-      position: absolute;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-    }
-    #menu {
-      background-color: rgba(5, 10, 30, 0.96);
-      justify-content: flex-start;
-      padding-top: 80px;
-    }
-    #menu h1 {
-      font-size: 40px;
-      color: #ffcc00;
-      margin-bottom: 10px;
-    }
-    #menu p {
-      font-size: 20px;
-      margin-bottom: 20px;
-      color: #ccc;
-    }
-    .level-buttons {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 20px 10px;
-    }
-    #endless-mode-btn,
-    .level-button {
-      height: 50px;
-      border-radius: 8px;
-      border: 2px solid #fff;
-      color: #fff;
-      font-size: 18px;
-      cursor: pointer;
-    }
-    #endless-mode-btn {
-      width: 200px;
-      background-color: #00cc00;
-      margin-bottom: 20px;
-    }
-    .level-button {
-      width: 150px;
-      background-color: #0077cc;
-    }
-    .level-button.locked {
-      background-color: #666;
-      cursor: not-allowed;
-    }
-    .level-button.beaten {
-      border-color: #00ff99;
-    }
-    .best-score {
-      font-size: 14px;
-      color: #00ff99;
-      margin-top: 2px;
-    }
-    #pause-overlay,
-    #death-overlay {
-      background-color: rgba(0, 0, 0, 0.85);
-      font-size: 20px;
-      display: none;
-    }
-    #pause-overlay button,
-    #death-overlay button {
-      margin: 10px 0;
-      padding: 10px 20px;
-      border-radius: 6px;
-      border: none;
-      background-color: #0077cc;
-      color: #fff;
-      cursor: pointer;
-    }
-    #death-overlay button.green {
-      background-color: #00cc00;
-    }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Geometry Dash Lite</title>
+<style>
+  html, body { margin:0; width:100%; height:100%; overflow:hidden; background:#111; font-family:Arial, sans-serif; }
+  canvas { display:block; background: linear-gradient(#111, #1a1a2e 60%, #0f1020); }
+  .hud {
+    position:fixed; inset:0; pointer-events:none; color:#fff; text-shadow:0 2px 4px rgba(0,0,0,.6);
+  }
+  .topbar { display:flex; justify-content:space-between; padding:14px 16px; font-size:18px; }
+  .center {
+    position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); text-align:center;
+    background:rgba(0,0,0,.35); padding:18px 22px; border:1px solid rgba(255,255,255,.12); border-radius:14px;
+  }
+  .center h1 { margin:0 0 8px; font-size:28px; }
+  .center p { margin:6px 0; font-size:14px; line-height:1.5; opacity:.95; }
+  .btn { display:inline-block; margin-top:10px; padding:10px 16px; border-radius:999px; background:#4cc9f0; color:#001018; font-weight:bold; }
+</style>
 </head>
 <body>
-  <div id="game-container">
-    <canvas id="game-canvas" width="900" height="500"></canvas>
-
-
-    <div id="menu">
-      <h1>Geometry Dash Wave</h1>
-      <p>Select Level (1–10) or Endless Mode</p>
-      <button id="endless-mode-btn">Endless Mode</button>
-      <div class="level-buttons" id="level-buttons"></div>
-    </div>
-
-
-    <div id="pause-overlay">
-      <h2>Paused</h2>
-      <button id="resume-btn">Resume</button>
-      <button id="menu-btn">Main Menu</button>
-    </div>
-
-
-    <div id="death-overlay">
-      <h2>You Died!</h2>
-      <button id="restart-btn">Restart</button>
-      <button id="menu-btn-d" class="green">Main Menu</button>
-    </div>
+<canvas id="game"></canvas>
+<div class="hud">
+  <div class="topbar"><div id="score">0%</div><div id="best">Best: 0%</div></div>
+  <div class="center" id="overlay">
+    <h1>Geometry Dash Lite</h1>
+    <p>Press Space, Up, or Click to jump.</p>
+    <p>Avoid the spikes and survive as long as you can.</p>
+    <div class="btn">Start Game</div>
   </div>
+</div>
+<script>
+(() => {
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const scoreEl = document.getElementById('score');
+  const bestEl = document.getElementById('best');
+  const overlay = document.getElementById('overlay');
 
+  function resize(){ canvas.width = innerWidth; canvas.height = innerHeight; }
+  addEventListener('resize', resize); resize();
 
-  <script>
-    const canvas = document.getElementById("game-canvas");
-    const ctx = canvas.getContext("2d");
+  const groundY = () => canvas.height * 0.78;
+  const gravity = 0.7;
+  const jumpVel = -13;
+  let started = false, gameOver = false, score = 0, best = 0, distance = 0;
+  let speed = 6;
+  const player = { x: 140, y: 0, w: 34, h: 34, vy: 0, rot: 0, onGround: true };
+  const obstacles = [];
+  let spawnTimer = 0;
 
+  function reset(){
+    started = false; gameOver = false; score = 0; distance = 0; speed = 6; spawnTimer = 0;
+    obstacles.length = 0;
+    player.y = groundY() - player.h;
+    player.vy = 0; player.rot = 0; player.onGround = true;
+    overlay.style.display = 'block';
+    overlay.querySelector('h1').textContent = 'Geometry Dash Lite';
+    overlay.querySelectorAll('p')[0].textContent = 'Press Space, Up, or Click to jump.';
+    overlay.querySelectorAll('p')[1].textContent = 'Avoid the spikes and survive as long as you can.';
+    overlay.querySelector('.btn').textContent = 'Start Game';
+    scoreEl.textContent = '0%';
+    bestEl.textContent = 'Best: ' + best + '%';
+  }
 
-    const menuEl = document.getElementById("menu");
-    const pauseOverlay = document.getElementById("pause-overlay");
-    const deathOverlay = document.getElementById("death-overlay");
-    const resumeBtn = document.getElementById("resume-btn");
-    const menuBtn = document.getElementById("menu-btn");
-    const restartBtn = document.getElementById("restart-btn");
-    const menuBtnD = document.getElementById("menu-btn-d");
-    const levelButtonsEl = document.getElementById("level-buttons");
-    const endlessModeBtn = document.getElementById("endless-mode-btn");
+  function start(){
+    if (!started) {
+      started = true;
+      overlay.style.display = 'none';
+    }
+  }
 
+  function jump(){
+    if (gameOver) { reset(); return; }
+    start();
+    if (player.onGround) { player.vy = jumpVel; player.onGround = false; }
+  }
 
-    const NUM_LEVELS = 10;
-    let levelsBeaten = Array(NUM_LEVELS).fill(false);
-    let bestProgress = Array(NUM_LEVELS).fill(0);
-    let endlessBestScore = 0;
+  function addObstacle(){
+    const type = Math.random() < 0.72 ? 'spike' : 'double';
+    const baseH = 34;
+    if (type === 'spike') {
+      obstacles.push({ x: canvas.width + 40, y: groundY() - baseH, w: 34, h: baseH, type });
+    } else {
+      obstacles.push({ x: canvas.width + 30, y: groundY() - baseH, w: 34, h: baseH, type, gap: 54 });
+      obstacles.push({ x: canvas.width + 74, y: groundY() - baseH, w: 34, h: baseH, type, gap: 54 });
+    }
+  }
 
+  function collides(a, b){
+    return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+  }
 
-    let gameState = "menu"; // menu, playing, endless, paused, dead
-    let currentLevelIndex = 0;
-    let isEndlessMode = false;
+  function drawGround(){
+    const y = groundY();
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(0, y, canvas.width, canvas.height - y);
+    ctx.fillStyle = '#22c55e';
+    ctx.fillRect(0, y - 6, canvas.width, 6);
+    for (let i = 0; i < canvas.width; i += 40) {
+      ctx.fillStyle = 'rgba(255,255,255,.08)';
+      ctx.fillRect(i + (distance % 40), y + 10, 20, 3);
+    }
+  }
 
+  function drawPlayer(){
+    ctx.save();
+    ctx.translate(player.x + player.w/2, player.y + player.h/2);
+    ctx.rotate(player.rot);
+    const grad = ctx.createLinearGradient(-18,-18,18,18);
+    grad.addColorStop(0, '#4cc9f0');
+    grad.addColorStop(1, '#4361ee');
+    ctx.fillStyle = grad;
+    ctx.fillRect(-player.w/2, -player.h/2, player.w, player.h);
+    ctx.fillStyle = 'rgba(255,255,255,.2)';
+    ctx.fillRect(-player.w/2+4, -player.h/2+4, player.w-8, 7);
+    ctx.restore();
+  }
 
-    // Wave settings (Y roughly 2x, forward speed handled in scrollSpeed)
-    const WAVE_SIZE = 20;
-    const WAVE_RISE_FALL = 8.4;
-    const SPEED_MULTIPLIER = 1.7;
+  function drawObstacle(o){
+    ctx.fillStyle = '#ff4d6d';
+    ctx.beginPath();
+    ctx.moveTo(o.x, o.y + o.h);
+    ctx.lineTo(o.x + o.w/2, o.y);
+    ctx.lineTo(o.x + o.w, o.y + o.h);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.15)';
+    ctx.beginPath();
+    ctx.moveTo(o.x + 5, o.y + o.h - 4);
+    ctx.lineTo(o.x + o.w/2, o.y + 8);
+    ctx.lineTo(o.x + o.w - 5, o.y + o.h - 4);
+    ctx.closePath();
+    ctx.fill();
+  }
 
+  function update(){
+    if (!started || gameOver) return;
 
-    // Load wave icon with transparent background (PNG)
-    const waveImg = new Image();
-    waveImg.src =
-      "https://www.vhv.rs/dpng/d/479-4799969_1-geometry-dash-wave-png-download-geometry-dash.png";
+    distance += speed;
+    score = Math.floor(distance / 12);
+    speed = 6 + Math.min(6, score / 80);
+    scoreEl.textContent = score + '%';
+    bestEl.textContent = 'Best: ' + best + '%';
 
+    player.vy += gravity;
+    player.y += player.vy;
+    player.rot += 0.08;
+    const floor = groundY() - player.h;
+    if (player.y >= floor) { player.y = floor; player.vy = 0; player.onGround = true; player.rot = 0; }
 
-    let waveRotation = 0;
-    let targetRotation = 0;
-    const ROTATION_SPEED = 0.15;
-
-
-    class Obstacle {
-      constructor(x, y, w, h, type = "spikeTop") {
-        this.x = x;
-        this.y = y;
-        this.w = w;
-        this.h = h;
-        this.type = type; // spikeTop, spikeBottom, normal
-      }
-
-
-      update(speed) {
-        const effectiveSpeed = speed * SPEED_MULTIPLIER;
-        this.x -= effectiveSpeed;
-      }
-
-
-      drawSpikes(isTop) {
-        const spikeSize = 18;
-        const spikes = Math.max(2, Math.floor(this.w / spikeSize));
-
-
-        // dark inner block
-        ctx.fillStyle = "#050812";
-        ctx.fillRect(this.x, this.y, this.w, this.h);
-
-
-        // neon spike edge
-        ctx.fillStyle = "#00bfff";
-        ctx.strokeStyle = "#00ffff";
-        ctx.lineWidth = 2;
-
-
-        ctx.beginPath();
-        if (isTop) {
-          ctx.moveTo(this.x, this.y + this.h);
-          let px = this.x;
-          for (let i = 0; i < spikes; i++) {
-            const mid = px + spikeSize / 2;
-            const next = px + spikeSize;
-            ctx.lineTo(mid, this.y + this.h - spikeSize);
-            ctx.lineTo(next, this.y + this.h);
-            px = next;
-          }
-        } else {
-          ctx.moveTo(this.x, this.y);
-          let px = this.x;
-          for (let i = 0; i < spikes; i++) {
-            const mid = px + spikeSize / 2;
-            const next = px + spikeSize;
-            ctx.lineTo(mid, this.y + spikeSize);
-            ctx.lineTo(next, this.y);
-            px = next;
-          }
-        }
-        ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
-      }
-
-
-      draw() {
-        if (this.type === "spikeTop") {
-          this.drawSpikes(true);
-        } else if (this.type === "spikeBottom") {
-          this.drawSpikes(false);
-        } else {
-          ctx.fillStyle = "#cc1111";
-          ctx.fillRect(this.x, this.y, this.w, this.h);
-        }
-      }
-
-
-      collidesWith(waveRect) {
-        return (
-          waveRect.x < this.x + this.w &&
-          waveRect.x + waveRect.w > this.x &&
-          waveRect.y < this.y + this.h &&
-          waveRect.y + waveRect.h > this.y
-        );
-      }
+    spawnTimer--;
+    if (spawnTimer <= 0) {
+      addObstacle();
+      spawnTimer = 70 + Math.random() * 50;
     }
 
+    for (const o of obstacles) o.x -= speed;
+    while (obstacles.length && obstacles[0].x + obstacles[0].w < -20) obstacles.shift();
 
-    // scores in localStorage
-    function loadBestScores() {
-      const saved = localStorage.getItem("geometry_dash_wave_best");
-      if (!saved) return;
-      try {
-        const data = JSON.parse(saved);
-        if (data.levels && data.progress && data.endlessBest != null) {
-          levelsBeaten = data.levels;
-          bestProgress = data.progress;
-          endlessBestScore = data.endlessBest;
-        }
-      } catch {}
-    }
-    function saveBestScores() {
-      const data = {
-        levels: levelsBeaten.slice(),
-        progress: bestProgress.slice(),
-        endlessBest: endlessBestScore,
-      };
-      localStorage.setItem("geometry_dash_wave_best", JSON.stringify(data));
-    }
-    loadBestScores();
-
-
-    function generateLevelData(levelIndex) {
-      const baseSpeed = (3 + levelIndex * 0.4);
-      const obstacles = [];
-
-
-      const levelLength = (5000 + levelIndex * 800) * SPEED_MULTIPLIER;
-      const minGap = Math.max(80 - levelIndex * 5, 40);
-      const maxGap = Math.max(160 - levelIndex * 6, minGap + 5);
-
-
-      let x = 900 + 200;
-
-
-      while (x < levelLength) {
-        const gapYCenter = 90 + Math.random() * (canvas.height - 180);
-        const segmentWidth = 50 + Math.random() * 40;
-
-
-        const topHeight = gapYCenter - minGap / 2;
-        const bottomY = gapYCenter + minGap / 2;
-        const bottomHeight = canvas.height - bottomY;
-
-
-        if (topHeight > 0) {
-          obstacles.push(
-            new Obstacle(x, 0, segmentWidth, topHeight, "spikeTop")
-          );
-        }
-        if (bottomHeight > 0) {
-          obstacles.push(
-            new Obstacle(x, bottomY, segmentWidth, bottomHeight, "spikeBottom")
-          );
-        }
-
-
-        x += 180 + Math.random() * (maxGap - 180);
-      }
-
-
-      return { scrollSpeed: baseSpeed, obstacles, length: levelLength };
-    }
-
-
-    // endless mode
-    let endlessObstacles = [];
-    let endlessScrollSpeed = 3;
-    let endlessProgress = 0;
-    let lastObstacleX = 0;
-
-
-    function generateEndlessChunk() {
-      const segmentWidth = 50 + Math.random() * 40;
-      const gapYCenter = 90 + Math.random() * (canvas.height - 180);
-      const minGap = 60;
-
-
-      const topHeight = gapYCenter - minGap / 2;
-      const bottomY = gapYCenter + minGap / 2;
-      const bottomHeight = canvas.height - bottomY;
-
-
-      if (topHeight > 0) {
-        endlessObstacles.push(
-          new Obstacle(lastObstacleX, 0, segmentWidth, topHeight, "spikeTop")
-        );
-      }
-      if (bottomHeight > 0) {
-        endlessObstacles.push(
-          new Obstacle(
-            lastObstacleX,
-            bottomY,
-            segmentWidth,
-            bottomHeight,
-            "spikeBottom"
-          )
-        );
-      }
-
-
-      lastObstacleX += (180 + Math.random() * 120) * SPEED_MULTIPLIER;
-    }
-
-
-    function setupEndlessMode() {
-      endlessObstacles = [];
-      endlessScrollSpeed = 3;
-      endlessProgress = 0;
-      lastObstacleX = 900 + 200;
-      for (let i = 0; i < 10; i++) generateEndlessChunk();
-      isEndlessMode = true;
-      isAlive = true;
-      gameState = "endless";
-      menuEl.style.display = "none";
-      deathOverlay.style.display = "none";
-      pauseOverlay.style.display = "none";
-      waveRotation = 0;
-      targetRotation = 0;
-    }
-
-
-    // wave state
-    let waveX = 120;
-    let waveY = canvas.height / 2;
-    let progressX = 0;
-    let levelData = null;
-    let isAlive = true;
-    let isPaused = false;
-
-
-    let isMousePressed = false;
-    let isSpacePressed = false;
-
-
-    // simple crash sound
-    let audioCtx;
-    try {
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    } catch {}
-
-
-    function playCrashSound() {
-      if (!audioCtx) return;
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
-      osc.frequency.setValueAtTime(160, audioCtx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(
-        60,
-        audioCtx.currentTime + 0.25
-      );
-      gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(
-        0.01,
-        audioCtx.currentTime + 0.25
-      );
-      osc.start();
-      osc.stop(audioCtx.currentTime + 0.25);
-    }
-
-
-    function drawTextCenter(text, font, color, x, y) {
-      ctx.font = font;
-      const m = ctx.measureText(text);
-      ctx.fillStyle = color;
-      ctx.fillText(text, x - m.width / 2, y);
-    }
-
-
-    function drawWaveIcon() {
-      const size = WAVE_SIZE * 1.6;
-      ctx.save();
-      ctx.translate(waveX, waveY);
-      ctx.rotate(waveRotation);
-
-
-      if (waveImg.complete && waveImg.naturalHeight !== 0) {
-        ctx.drawImage(waveImg, -size / 2, -size / 2, size, size);
-      } else {
-        ctx.fillStyle = "#ffcc00";
-        ctx.beginPath();
-        ctx.moveTo(0, -size / 2);
-        ctx.lineTo(-size / 3, size / 3);
-        ctx.lineTo(size / 3, size / 3);
-        ctx.closePath();
-        ctx.fill();
-      }
-      ctx.restore();
-    }
-
-
-    function drawLevelScene() {
-      // background
-      ctx.fillStyle = "#021026";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-
-      // circular lines for GD vibe
-      ctx.strokeStyle = "rgba(0,180,255,0.25)";
-      for (let r = 80; r < 600; r += 60) {
-        ctx.beginPath();
-        ctx.arc(canvas.width / 2, canvas.height / 2, r, 0, Math.PI * 2);
-        ctx.stroke();
-      }
-
-
-      // ground/ceiling
-      ctx.strokeStyle = "#0ff";
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.lineTo(canvas.width, 0);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(0, canvas.height - 1);
-      ctx.lineTo(canvas.width, canvas.height - 1);
-      ctx.stroke();
-
-
-      // obstacles
-      let obstaclesToDraw = [];
-      if (isEndlessMode) {
-        obstaclesToDraw = endlessObstacles;
-      } else if (levelData && levelData.obstacles) {
-        obstaclesToDraw = levelData.obstacles;
-      }
-      obstaclesToDraw.forEach((o) => {
-        if (o.x + o.w > -50 && o.x < canvas.width + 50) o.draw();
-      });
-
-
-      // player
-      drawWaveIcon();
-
-
-      if (isEndlessMode) {
-        drawTextCenter(
-          `Endless – Score: ${Math.floor(endlessProgress)}`,
-          "20px Arial",
-          "#ffcc00",
-          canvas.width / 2,
-          24
-        );
-        drawTextCenter(
-          `Best: ${endlessBestScore}`,
-          "16px Arial",
-          "#00ff99",
-          canvas.width / 2,
-          46
-        );
-      } else {
-        drawTextCenter(
-          `Level ${currentLevelIndex + 1}`,
-          "20px Arial",
-          "#ffffff",
-          80,
-          24
-        );
-        const barW = 260;
-        const barH = 10;
-        const barX = canvas.width - barW - 40;
-        const barY = 24;
-        ctx.strokeStyle = "#aaaaaa";
-        ctx.strokeRect(barX, barY, barW, barH);
-        const ratio = Math.max(
-          0,
-          Math.min(1, progressX / (levelData ? levelData.length : 1))
-        );
-        ctx.fillStyle = "#00ff99";
-        ctx.fillRect(barX, barY, barW * ratio, barH);
+    const hitbox = { x: player.x + 4, y: player.y + 4, w: player.w - 8, h: player.h - 8 };
+    for (const o of obstacles) {
+      const box = { x: o.x + 4, y: o.y + 2, w: o.w - 8, h: o.h - 2 };
+      if (collides(hitbox, box)) {
+        gameOver = true;
+        best = Math.max(best, score);
+        overlay.style.display = 'block';
+        overlay.querySelector('h1').textContent = 'Game Over';
+        overlay.querySelectorAll('p')[0].textContent = 'Score: ' + score + '%';
+        overlay.querySelectorAll('p')[1].textContent = 'Press Space or Click to restart.';
+        overlay.querySelector('.btn').textContent = 'Restart';
       }
     }
+  }
 
+  function render(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    const bg = ctx.createLinearGradient(0,0,0,canvas.height);
+    bg.addColorStop(0, '#10131f');
+    bg.addColorStop(0.6, '#1b1f3a');
+    bg.addColorStop(1, '#0b1020');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0,0,canvas.width,canvas.height);
 
-    function updateWave() {
-      if (!isAlive) return;
-
-
-      const hold = isMousePressed || isSpacePressed;
-      if (hold) {
-        waveY -= WAVE_RISE_FALL;
-        targetRotation = -0.5;
-      } else {
-        waveY += WAVE_RISE_FALL;
-        targetRotation = 0.5;
-      }
-
-
-      waveRotation += (targetRotation - waveRotation) * ROTATION_SPEED;
-      waveY = Math.max(WAVE_SIZE, Math.min(canvas.height - WAVE_SIZE, waveY));
-
-
-      const waveRect = {
-        x: waveX - WAVE_SIZE / 2,
-        y: waveY - WAVE_SIZE / 2,
-        w: WAVE_SIZE,
-        h: WAVE_SIZE,
-      };
-
-
-      if (!isEndlessMode && levelData) {
-        progressX += levelData.scrollSpeed * SPEED_MULTIPLIER;
-        levelData.obstacles.forEach((o) => o.update(levelData.scrollSpeed));
-
-
-        for (const o of levelData.obstacles) {
-          if (o.collidesWith(waveRect)) {
-            isAlive = false;
-            playCrashSound();
-            gameState = "dead";
-            deathOverlay.style.display = "flex";
-            return;
-          }
-        }
-
-
-        const newProgress = Math.max(
-          0,
-          Math.min(1, progressX / levelData.length)
-        );
-        if (newProgress > bestProgress[currentLevelIndex]) {
-          bestProgress[currentLevelIndex] = newProgress;
-          saveBestScores();
-        }
-
-
-        if (progressX >= levelData.length) {
-          levelsBeaten[currentLevelIndex] = true;
-          bestProgress[currentLevelIndex] = 1;
-          saveBestScores();
-          gameState = "menu";
-          setTimeout(() => {
-            renderMenu();
-            updateButtons();
-          }, 200);
-        }
-      } else if (isEndlessMode) {
-        endlessProgress += endlessScrollSpeed * SPEED_MULTIPLIER;
-        endlessScrollSpeed = 3 + endlessProgress / 3000;
-
-
-        while (endlessObstacles.length && endlessObstacles[0].x < -150) {
-          endlessObstacles.shift();
-        }
-        while (lastObstacleX < endlessProgress + 1000) {
-          generateEndlessChunk();
-        }
-        endlessObstacles.forEach((o) => o.update(endlessScrollSpeed));
-
-
-        for (const o of endlessObstacles) {
-          if (o.collidesWith(waveRect)) {
-            isAlive = false;
-            if (endlessProgress > endlessBestScore) {
-              endlessBestScore = Math.floor(endlessProgress);
-              saveBestScores();
-            }
-            playCrashSound();
-            gameState = "dead";
-            deathOverlay.style.display = "flex";
-            return;
-          }
-        }
-      }
+    for (let i = 0; i < 12; i++) {
+      ctx.fillStyle = 'rgba(255,255,255,.03)';
+      ctx.fillRect((i*140 + (distance*0.3)%140) - 40, 80 + (i%3)*35, 70, 8);
     }
 
+    drawGround();
+    obstacles.forEach(drawObstacle);
+    drawPlayer();
 
-    function gameLoop() {
-      if ((gameState === "playing" || gameState === "endless") && !isPaused) {
-        updateWave();
-        drawLevelScene();
-      }
-      requestAnimationFrame(gameLoop);
+    if (!started && !gameOver) {
+      ctx.fillStyle = 'rgba(255,255,255,.6)';
+      ctx.font = '18px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('Click or press Space to begin', canvas.width/2, canvas.height*0.18);
     }
+  }
 
+  function loop(){ update(); render(); requestAnimationFrame(loop); }
 
-    function updateButtons() {
-      levelButtonsEl.innerHTML = "";
-      for (let i = 0; i < NUM_LEVELS; i++) {
-        const btn = document.createElement("button");
-        btn.className = "level-button";
-        btn.textContent = `Level ${i + 1}`;
-        const unlocked = i === 0 || levelsBeaten[i - 1];
-        if (!unlocked) btn.classList.add("locked");
-        else if (levelsBeaten[i]) btn.classList.add("beaten");
+  addEventListener('keydown', e => {
+    if (e.code === 'Space' || e.code === 'ArrowUp') { e.preventDefault(); jump(); }
+    if (e.code === 'KeyR' && gameOver) reset();
+  });
+  addEventListener('mousedown', jump);
+  addEventListener('touchstart', e => { e.preventDefault(); jump(); }, { passive:false });
+  overlay.addEventListener('click', jump);
 
-
-        const progress = Math.floor(bestProgress[i] * 100);
-        let wrapper = btn;
-        if (progress > 0) {
-          const p = document.createElement("div");
-          p.className = "best-score";
-          p.textContent = `Best: ${progress}%`;
-          wrapper = document.createElement("div");
-          wrapper.style.display = "flex";
-          wrapper.style.flexDirection = "column";
-          wrapper.style.alignItems = "center";
-          wrapper.appendChild(btn);
-          wrapper.appendChild(p);
-        }
-        levelButtonsEl.appendChild(wrapper);
-
-
-        btn.addEventListener("click", () => {
-          if (!unlocked) return;
-          startLevel(i);
-        });
-      }
-    }
-
-
-    function renderMenu() {
-      menuEl.style.display = "flex";
-      pauseOverlay.style.display = "none";
-      deathOverlay.style.display = "none";
-    }
-
-
-    function startLevel(levelIndex) {
-      isEndlessMode = false;
-      currentLevelIndex = levelIndex;
-      levelData = generateLevelData(levelIndex);
-      waveX = 120;
-      waveY = canvas.height / 2;
-      progressX = 0;
-      isAlive = true;
-      isPaused = false;
-      gameState = "playing";
-      menuEl.style.display = "none";
-      deathOverlay.style.display = "none";
-      pauseOverlay.style.display = "none";
-      waveRotation = 0;
-      targetRotation = 0;
-    }
-
-
-    // UI events
-    endlessModeBtn.addEventListener("click", setupEndlessMode);
-    resumeBtn.addEventListener("click", () => {
-      isPaused = false;
-      pauseOverlay.style.display = "none";
-      gameState = isEndlessMode ? "endless" : "playing";
-    });
-    menuBtn.addEventListener("click", () => {
-      gameState = "menu";
-      renderMenu();
-    });
-    menuBtnD.addEventListener("click", () => {
-      gameState = "menu";
-      renderMenu();
-    });
-    restartBtn.addEventListener("click", () => {
-      deathOverlay.style.display = "none";
-      if (isEndlessMode) setupEndlessMode();
-      else startLevel(currentLevelIndex);
-    });
-
-
-    // input
-    canvas.addEventListener("mousedown", () => { isMousePressed = true; });
-    window.addEventListener("mouseup", () => { isMousePressed = false; });
-
-
-    window.addEventListener("keydown", (e) => {
-      if (e.code === "Space") {
-        isSpacePressed = true;
-        e.preventDefault();
-      }
-      if (e.code === "Escape") {
-        if (gameState === "paused") {
-          isPaused = false;
-          pauseOverlay.style.display = "none";
-          gameState = isEndlessMode ? "endless" : "playing";
-        } else if (gameState === "playing" || gameState === "endless") {
-          isPaused = true;
-          pauseOverlay.style.display = "flex";
-          gameState = "paused";
-        }
-      }
-    });
-
-
-    window.addEventListener("keyup", (e) => {
-      if (e.code === "Space") {
-        isSpacePressed = false;
-        e.preventDefault();
-      }
-    });
-
-
-    // init
-    updateButtons();
-    renderMenu();
-    requestAnimationFrame(gameLoop);
-  </script>
+  reset();
+  loop();
+})();
+</script>
 </body>
 </html>
