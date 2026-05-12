@@ -3,94 +3,640 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Geometry Dash Lite</title>
+<title>Geometry Dash Plus</title>
 <style>
-  html, body { margin:0; width:100%; height:100%; overflow:hidden; background:#111; font-family:Arial, sans-serif; }
-  canvas { display:block; background: linear-gradient(#111, #1a1a2e 60%, #0f1020); }
-  .hud {
-    position:fixed; inset:0; pointer-events:none; color:#fff; text-shadow:0 2px 4px rgba(0,0,0,.6);
+  :root{
+    --bg1:#0b1020;
+    --bg2:#11162a;
+    --panel:rgba(10,15,28,.72);
+    --line:rgba(255,255,255,.12);
+    --accent:#4cc9f0;
+    --accent2:#ffd166;
+    --danger:#ff4d6d;
+    --good:#4ade80;
+    --text:#f8fafc;
   }
-  .topbar { display:flex; justify-content:space-between; padding:14px 16px; font-size:18px; }
-  .center {
-    position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); text-align:center;
-    background:rgba(0,0,0,.35); padding:18px 22px; border:1px solid rgba(255,255,255,.12); border-radius:14px;
+  html,body{
+    margin:0;
+    width:100%;
+    height:100%;
+    overflow:hidden;
+    background:#050816;
+    font-family:Arial,Helvetica,sans-serif;
+    color:var(--text);
   }
-  .center h1 { margin:0 0 8px; font-size:28px; }
-  .center p { margin:6px 0; font-size:14px; line-height:1.5; opacity:.95; }
-  .btn { display:inline-block; margin-top:10px; padding:10px 16px; border-radius:999px; background:#4cc9f0; color:#001018; font-weight:bold; }
+  canvas{
+    display:block;
+    width:100vw;
+    height:100vh;
+    background:linear-gradient(#090d1a,#141a33 60%,#0b1020);
+  }
+  .ui{
+    position:fixed;
+    inset:0;
+    pointer-events:none;
+  }
+  .topbar{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:14px 16px;
+    font-size:18px;
+    text-shadow:0 2px 6px rgba(0,0,0,.7);
+  }
+  .pill{
+    background:rgba(0,0,0,.28);
+    border:1px solid rgba(255,255,255,.1);
+    border-radius:999px;
+    padding:8px 12px;
+    backdrop-filter:blur(8px);
+  }
+  .menu, .modal{
+    position:absolute;
+    left:50%;
+    top:50%;
+    transform:translate(-50%,-50%);
+    width:min(92vw, 860px);
+    background:linear-gradient(180deg, rgba(14,19,36,.88), rgba(8,10,20,.82));
+    border:1px solid var(--line);
+    border-radius:22px;
+    box-shadow:0 20px 60px rgba(0,0,0,.45);
+    backdrop-filter:blur(12px);
+    pointer-events:auto;
+    overflow:hidden;
+  }
+  .menu{
+    opacity:1;
+    transition:opacity .35s ease, transform .35s ease, filter .35s ease;
+  }
+  .menu.hidden{
+    opacity:0;
+    transform:translate(-50%,-48%) scale(.98);
+    filter:blur(4px);
+    pointer-events:none;
+  }
+  .hero{
+    padding:28px;
+    background:
+      radial-gradient(circle at 20% 20%, rgba(76,201,240,.18), transparent 28%),
+      radial-gradient(circle at 80% 0%, rgba(255,209,102,.14), transparent 24%),
+      linear-gradient(135deg, rgba(76,201,240,.1), rgba(255,77,109,.08));
+  }
+  .title{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:18px;
+    flex-wrap:wrap;
+  }
+  h1{
+    margin:0;
+    font-size:clamp(32px, 5vw, 58px);
+    letter-spacing:.5px;
+  }
+  .subtitle{
+    margin:10px 0 0;
+    opacity:.85;
+    font-size:15px;
+    line-height:1.5;
+    max-width:62ch;
+  }
+  .menu-grid{
+    display:grid;
+    grid-template-columns:1.15fr .85fr;
+    gap:18px;
+    padding:0 18px 18px;
+  }
+  .panel{
+    background:rgba(0,0,0,.18);
+    border:1px solid rgba(255,255,255,.08);
+    border-radius:18px;
+    padding:18px;
+  }
+  .section-title{
+    margin:0 0 12px;
+    font-size:16px;
+    opacity:.9;
+    letter-spacing:.2px;
+  }
+  .btnrow{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+  }
+  button, select, input[type="color"]{
+    pointer-events:auto;
+    font:inherit;
+  }
+  .btn{
+    border:0;
+    border-radius:14px;
+    padding:12px 16px;
+    color:#001018;
+    background:linear-gradient(180deg, #7dd3fc, #4cc9f0);
+    box-shadow:0 8px 18px rgba(76,201,240,.25);
+    font-weight:700;
+    cursor:pointer;
+    transition:transform .18s ease, filter .18s ease;
+  }
+  .btn:hover{ transform:translateY(-1px) scale(1.01); filter:brightness(1.05); }
+  .btn.secondary{
+    background:linear-gradient(180deg, #fde68a, #fbbf24);
+    box-shadow:0 8px 18px rgba(251,191,36,.2);
+  }
+  .btn.dark{
+    color:var(--text);
+    background:linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.06));
+    border:1px solid rgba(255,255,255,.12);
+    box-shadow:none;
+  }
+  .levels{
+    display:grid;
+    grid-template-columns:repeat(2, minmax(0,1fr));
+    gap:10px;
+  }
+  .level-card{
+    border:1px solid rgba(255,255,255,.1);
+    background:rgba(255,255,255,.05);
+    color:var(--text);
+    border-radius:16px;
+    padding:14px;
+    cursor:pointer;
+    transition:transform .18s ease, background .18s ease, border-color .18s ease;
+    text-align:left;
+  }
+  .level-card:hover{
+    transform:translateY(-2px);
+    background:rgba(255,255,255,.08);
+    border-color:rgba(76,201,240,.35);
+  }
+  .level-card strong{ display:block; font-size:16px; margin-bottom:6px; }
+  .level-card span{ font-size:13px; opacity:.8; line-height:1.4; }
+  .custom-row{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+    margin-top:10px;
+  }
+  .field{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    font-size:13px;
+    opacity:.92;
+  }
+  .field input, .field select{
+    width:100%;
+    box-sizing:border-box;
+    border-radius:12px;
+    border:1px solid rgba(255,255,255,.12);
+    background:rgba(255,255,255,.06);
+    color:var(--text);
+    padding:11px 12px;
+    outline:none;
+  }
+  .field input[type="color"]{
+    padding:0;
+    height:42px;
+  }
+  .small{
+    font-size:13px;
+    opacity:.78;
+    line-height:1.5;
+  }
+  .gameover{
+    position:absolute;
+    left:50%;
+    top:50%;
+    transform:translate(-50%,-50%);
+    width:min(92vw, 560px);
+    background:linear-gradient(180deg, rgba(24,10,18,.92), rgba(10,10,18,.88));
+    border:1px solid rgba(255,255,255,.12);
+    border-radius:20px;
+    padding:22px;
+    pointer-events:auto;
+    display:none;
+    text-align:center;
+  }
+  .gameover.show{ display:block; }
+  .gameover h2{
+    margin:0 0 8px;
+    font-size:34px;
+  }
+  .gameover p{
+    margin:6px 0;
+    opacity:.9;
+  }
 </style>
 </head>
 <body>
 <canvas id="game"></canvas>
-<div class="hud">
-  <div class="topbar"><div id="score">0%</div><div id="best">Best: 0%</div></div>
-  <div class="center" id="overlay">
-    <h1>Geometry Dash Lite</h1>
-    <p>Press Space, Up, or Click to jump.</p>
-    <p>Avoid the spikes and survive as long as you can.</p>
-    <div class="btn">Start Game</div>
+
+<div class="ui">
+  <div class="topbar">
+    <div class="pill" id="modeLabel">Mode: Cube</div>
+    <div class="pill" id="scoreLabel">0%</div>
+    <div class="pill" id="levelLabel">Level 1</div>
+    <div class="pill" id="bestLabel">Best: 0%</div>
+  </div>
+
+  <div class="menu" id="menu">
+    <div class="hero">
+      <div class="title">
+        <div>
+          <h1>Geometry Dash Plus</h1>
+          <p class="subtitle">Choose a level, customize your icon, and play through cube, ship, or ball sections. Reach 1000% to win the current level and unlock the next one.</p>
+        </div>
+        <div class="btnrow">
+          <button class="btn secondary" id="playBtn">Play</button>
+          <button class="btn dark" id="practiceBtn">Practice</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="menu-grid">
+      <div class="panel">
+        <h3 class="section-title">Level Select</h3>
+        <div class="levels" id="levelGrid"></div>
+      </div>
+
+      <div class="panel">
+        <h3 class="section-title">Character Customization</h3>
+        <div class="field">
+          <label for="iconShape">Icon Shape</label>
+          <select id="iconShape">
+            <option value="cube">Cube</option>
+            <option value="ship">Ship</option>
+            <option value="ball">Ball</option>
+          </select>
+        </div>
+        <div class="custom-row">
+          <div class="field">
+            <label for="iconColor">Primary Color</label>
+            <input id="iconColor" type="color" value="#4cc9f0" />
+          </div>
+          <div class="field">
+            <label for="accentColor">Accent Color</label>
+            <input id="accentColor" type="color" value="#ffd166" />
+          </div>
+        </div>
+        <div class="field" style="margin-top:10px;">
+          <label for="trailColor">Trail Color</label>
+          <input id="trailColor" type="color" value="#ff4d6d" />
+        </div>
+        <p class="small">Yellow orbs boost you upward when clicked while touching them. Slopes and platforms are included across levels, and the ship and ball each use their own movement style and sprite.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="gameover" id="gameover">
+    <h2 id="overTitle">You Win</h2>
+    <p id="overText">You reached 1000%.</p>
+    <div class="btnrow" style="justify-content:center; margin-top:14px;">
+      <button class="btn secondary" id="nextBtn">Next Level</button>
+      <button class="btn dark" id="retryBtn">Retry</button>
+      <button class="btn dark" id="menuBtn">Main Menu</button>
+    </div>
   </div>
 </div>
+
 <script>
 (() => {
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d');
-  const scoreEl = document.getElementById('score');
-  const bestEl = document.getElementById('best');
-  const overlay = document.getElementById('overlay');
 
-  function resize(){ canvas.width = innerWidth; canvas.height = innerHeight; }
-  addEventListener('resize', resize); resize();
+  const menu = document.getElementById('menu');
+  const gameover = document.getElementById('gameover');
+  const modeLabel = document.getElementById('modeLabel');
+  const scoreLabel = document.getElementById('scoreLabel');
+  const levelLabel = document.getElementById('levelLabel');
+  const bestLabel = document.getElementById('bestLabel');
 
-  const groundY = () => canvas.height * 0.78;
-  const gravity = 0.7;
-  const jumpVel = -13;
-  let started = false, gameOver = false, score = 0, best = 0, distance = 0;
-  let speed = 6;
-  const player = { x: 140, y: 0, w: 34, h: 34, vy: 0, rot: 0, onGround: true };
-  const obstacles = [];
+  const levelGrid = document.getElementById('levelGrid');
+  const playBtn = document.getElementById('playBtn');
+  const practiceBtn = document.getElementById('practiceBtn');
+  const retryBtn = document.getElementById('retryBtn');
+  const menuBtn = document.getElementById('menuBtn');
+  const nextBtn = document.getElementById('nextBtn');
+  const iconShape = document.getElementById('iconShape');
+  const iconColor = document.getElementById('iconColor');
+  const accentColor = document.getElementById('accentColor');
+  const trailColor = document.getElementById('trailColor');
+  const overTitle = document.getElementById('overTitle');
+  const overText = document.getElementById('overText');
+
+  function resize() {
+    canvas.width = innerWidth;
+    canvas.height = innerHeight;
+  }
+  addEventListener('resize', resize);
+  resize();
+
+  const LEVELS = [
+    { name:'Level 1', mode:'cube', speed:6, theme:['#101827','#1b2642'], platformGap:240, orbRate:0.07, slopeRate:0.10, shipRate:0.00, ballRate:0.00 },
+    { name:'Level 2', mode:'cube', speed:6.5, theme:['#0d1324','#202a4f'], platformGap:220, orbRate:0.08, slopeRate:0.12, shipRate:0.10, ballRate:0.10 },
+    { name:'Level 3', mode:'ship', speed:7, theme:['#0b1020','#16213f'], platformGap:200, orbRate:0.06, slopeRate:0.08, shipRate:0.35, ballRate:0.08 },
+    { name:'Level 4', mode:'ball', speed:7.5, theme:['#110b1f','#302053'], platformGap:190, orbRate:0.07, slopeRate:0.14, shipRate:0.08, ballRate:0.35 },
+    { name:'Level 5', mode:'cube', speed:8, theme:['#09111f','#2a1840'], platformGap:180, orbRate:0.10, slopeRate:0.16, shipRate:0.15, ballRate:0.12 },
+    { name:'Level 6', mode:'ship', speed:8.5, theme:['#08101d','#17354d'], platformGap:170, orbRate:0.08, slopeRate:0.12, shipRate:0.40, ballRate:0.12 }
+  ];
+
+  let selectedLevel = 0;
+  let practice = false;
+  let started = false;
+  let gameOver = false;
+  let won = false;
+  let score = 0;
+  let bestByLevel = Array(LEVELS.length).fill(0);
+  let distance = 0;
+  let speed = LEVELS[0].speed;
+  let mode = 'cube';
+  let currentModeOverride = null;
+  let jumpPressed = false;
+  let gravity = 0.7;
+  let bg = LEVELS[0].theme;
   let spawnTimer = 0;
+  let progressTarget = 1000;
+  const groundFrac = 0.78;
 
-  function reset(){
-    started = false; gameOver = false; score = 0; distance = 0; speed = 6; spawnTimer = 0;
-    obstacles.length = 0;
-    player.y = groundY() - player.h;
-    player.vy = 0; player.rot = 0; player.onGround = true;
-    overlay.style.display = 'block';
-    overlay.querySelector('h1').textContent = 'Geometry Dash Lite';
-    overlay.querySelectorAll('p')[0].textContent = 'Press Space, Up, or Click to jump.';
-    overlay.querySelectorAll('p')[1].textContent = 'Avoid the spikes and survive as long as you can.';
-    overlay.querySelector('.btn').textContent = 'Start Game';
-    scoreEl.textContent = '0%';
-    bestEl.textContent = 'Best: ' + best + '%';
+  const player = {
+    x: 140, y: 0, w: 34, h: 34, vy: 0, rot: 0, onGround: true,
+    shipVy: 0, ballGravityDown: true
+  };
+
+  const obstacles = [];
+  const particles = [];
+
+  function groundY(){ return canvas.height * groundFrac; }
+  function floorY(){ return groundY() - player.h; }
+
+  function setLevel(i){
+    selectedLevel = Math.max(0, Math.min(LEVELS.length - 1, i));
+    const lvl = LEVELS[selectedLevel];
+    mode = lvl.mode;
+    speed = lvl.speed;
+    bg = lvl.theme;
+    currentModeOverride = null;
+    levelLabel.textContent = lvl.name;
+    modeLabel.textContent = 'Mode: ' + capitalize(mode);
+    renderLevelCards();
   }
 
-  function start(){
-    if (!started) {
-      started = true;
-      overlay.style.display = 'none';
-    }
+  function capitalize(s){ return s.charAt(0).toUpperCase() + s.slice(1); }
+
+  function renderLevelCards(){
+    levelGrid.innerHTML = '';
+    LEVELS.forEach((lvl, i) => {
+      const card = document.createElement('button');
+      card.className = 'level-card';
+      card.innerHTML = `<strong>${lvl.name}</strong><span>${capitalize(lvl.mode)} sections, slopes, platforms, orbs, and progressive difficulty.</span>`;
+      card.onclick = () => setLevel(i);
+      levelGrid.appendChild(card);
+    });
+  }
+
+  function resetLevel(keepProgress=false){
+    const lvl = LEVELS[selectedLevel];
+    started = false;
+    gameOver = false;
+    won = false;
+    distance = keepProgress ? distance : 0;
+    score = keepProgress ? score : 0;
+    speed = lvl.speed;
+    mode = currentModeOverride || lvl.mode;
+    bg = lvl.theme;
+    spawnTimer = 0;
+    obstacles.length = 0;
+    particles.length = 0;
+    player.y = floorY();
+    player.vy = 0;
+    player.rot = 0;
+    player.onGround = true;
+    player.shipVy = 0;
+    player.ballGravityDown = true;
+    menu.classList.remove('hidden');
+    gameover.classList.remove('show');
+    scoreLabel.textContent = '0%';
+    bestLabel.textContent = 'Best: ' + bestByLevel[selectedLevel] + '%';
+    modeLabel.textContent = 'Mode: ' + capitalize(mode);
+    levelLabel.textContent = lvl.name;
+  }
+
+  function startGame(){
+    started = true;
+    menu.classList.add('hidden');
+    gameover.classList.remove('show');
+  }
+
+  function endWin(){
+    gameOver = true;
+    won = true;
+    bestByLevel[selectedLevel] = Math.max(bestByLevel[selectedLevel], score);
+    overTitle.textContent = 'Level Complete';
+    overText.textContent = 'You reached 1000%. Proceed to the next level.';
+    nextBtn.style.display = selectedLevel < LEVELS.length - 1 ? 'inline-block' : 'none';
+    gameover.classList.add('show');
+  }
+
+  function endLose(){
+    gameOver = true;
+    bestByLevel[selectedLevel] = Math.max(bestByLevel[selectedLevel], score);
+    overTitle.textContent = 'Game Over';
+    overText.textContent = 'Try again or return to the menu.';
+    nextBtn.style.display = 'none';
+    gameover.classList.add('show');
   }
 
   function jump(){
-    if (gameOver) { reset(); return; }
-    start();
-    if (player.onGround) { player.vy = jumpVel; player.onGround = false; }
-  }
+    if (gameOver) {
+      if (won) return;
+      resetLevel(false);
+      startGame();
+      return;
+    }
+    if (!started) startGame();
 
-  function addObstacle(){
-    const type = Math.random() < 0.72 ? 'spike' : 'double';
-    const baseH = 34;
-    if (type === 'spike') {
-      obstacles.push({ x: canvas.width + 40, y: groundY() - baseH, w: 34, h: baseH, type });
-    } else {
-      obstacles.push({ x: canvas.width + 30, y: groundY() - baseH, w: 34, h: baseH, type, gap: 54 });
-      obstacles.push({ x: canvas.width + 74, y: groundY() - baseH, w: 34, h: baseH, type, gap: 54 });
+    if (mode === 'cube') {
+      if (player.onGround) {
+        player.vy = -13;
+        player.onGround = false;
+      }
+    } else if (mode === 'ball') {
+      player.ballGravityDown = !player.ballGravityDown;
+      player.vy = player.ballGravityDown ? 10 : -10;
+    } else if (mode === 'ship') {
+      player.shipVy = -9.5;
     }
   }
 
-  function collides(a, b){
+  function spawnObstacle(){
+    const lvl = LEVELS[selectedLevel];
+    const x = canvas.width + 60 + Math.random() * 120;
+    const typeRoll = Math.random();
+
+    if (typeRoll < lvl.orbRate) {
+      obstacles.push({ type:'orb', x, y:groundY() - 120 - Math.random()*100, r:16, used:false });
+      return;
+    }
+    if (typeRoll < lvl.orbRate + lvl.slopeRate) {
+      const w = 120 + Math.random()*70;
+      const h = 48 + Math.random()*30;
+      obstacles.push({ type:'slope', x, y:groundY(), w, h, dir:Math.random() < 0.5 ? 1 : -1 });
+      return;
+    }
+    if (typeRoll < lvl.orbRate + lvl.slopeRate + 0.24) {
+      const w = 120 + Math.random()*90;
+      const h = 18;
+      obstacles.push({ type:'platform', x, y:groundY() - 110 - Math.random()*80, w, h });
+      return;
+    }
+    if (typeRoll < lvl.orbRate + lvl.slopeRate + 0.24 + lvl.shipRate) {
+      obstacles.push({ type:'shipgate', x, y:groundY() - 220 - Math.random()*120, w:90, h:160 });
+      return;
+    }
+    if (typeRoll < lvl.orbRate + lvl.slopeRate + 0.24 + lvl.shipRate + lvl.ballRate) {
+      obstacles.push({ type:'ballgate', x, y:groundY() - 80, w:100, h:60 });
+      return;
+    }
+    obstacles.push({ type:'spike', x, y:groundY() - 34, w:34, h:34 });
+  }
+
+  function rect(x,y,w,h){ return {x,y,w,h}; }
+
+  function collide(a,b){
     return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+  }
+
+  function addParticles(x,y,c,n=10){
+    for(let i=0;i<n;i++) particles.push({
+      x,y, vx:(Math.random()-.5)*6, vy:(Math.random()-.8)*6, life:20+Math.random()*18, c
+    });
+  }
+
+  function update(){
+    if (!started || gameOver) return;
+
+    const lvl = LEVELS[selectedLevel];
+    distance += speed;
+    score = Math.floor(distance / 10);
+    if (score >= progressTarget && !won) {
+      endWin();
+      return;
+    }
+    speed = lvl.speed + Math.min(5, score / 160);
+    scoreLabel.textContent = score + '%';
+    bestLabel.textContent = 'Best: ' + bestByLevel[selectedLevel] + '%';
+    modeLabel.textContent = 'Mode: ' + capitalize(mode);
+    levelLabel.textContent = lvl.name;
+
+    if (mode === 'cube') {
+      player.vy += gravity;
+      player.y += player.vy;
+      player.rot += 0.08;
+      if (player.y >= floorY()) {
+        player.y = floorY();
+        player.vy = 0;
+        player.onGround = true;
+        player.rot = 0;
+      }
+    } else if (mode === 'ship') {
+      player.shipVy += 0.42;
+      player.shipVy = Math.max(-10, Math.min(10, player.shipVy));
+      player.y += player.shipVy;
+      player.rot = Math.max(-0.6, Math.min(0.6, player.shipVy * 0.06));
+      if (player.y < 20) player.y = 20;
+      if (player.y + player.h > groundY() - 20) player.y = groundY() - 20 - player.h;
+    } else if (mode === 'ball') {
+      player.vy += player.ballGravityDown ? 0.56 : -0.56;
+      player.vy = Math.max(-11, Math.min(11, player.vy));
+      player.y += player.vy;
+      player.rot += player.vy * 0.05;
+      if (player.y < 10) player.y = 10;
+      if (player.y + player.h > groundY() - 10) player.y = groundY() - 10 - player.h;
+    }
+
+    spawnTimer--;
+    if (spawnTimer <= 0) {
+      spawnObstacle();
+      spawnTimer = 55 + Math.random() * 45;
+    }
+
+    obstacles.forEach(o => o.x -= speed);
+    particles.forEach(p => { p.x += p.vx; p.y += p.vy; p.vy += 0.18; p.life -= 1; });
+    while (obstacles.length && obstacles[0].x + (obstacles[0].w || 0) < -100) obstacles.shift();
+    while (particles.length && particles[0].life <= 0) particles.shift();
+
+    const hit = rect(player.x + 4, player.y + 4, player.w - 8, player.h - 8);
+
+    for (const o of obstacles) {
+      if (o.type === 'orb') {
+        const dx = (player.x + player.w/2) - o.x;
+        const dy = (player.y + player.h/2) - o.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist < 26) {
+          if (jumpPressed) {
+            if (mode === 'cube') player.vy = -15.5;
+            if (mode === 'ship') player.shipVy = -11.5;
+            if (mode === 'ball') player.ballGravityDown = !player.ballGravityDown;
+            o.used = true;
+            addParticles(o.x, o.y, getComputedStyle(document.documentElement).getPropertyValue('--accent2').trim() || '#ffd166', 12);
+          }
+        }
+      }
+      if (o.type === 'spike') {
+        if (collide(hit, rect(o.x + 4, o.y + 2, o.w - 8, o.h - 2))) { endLose(); return; }
+      }
+      if (o.type === 'platform') {
+        const top = rect(o.x, o.y, o.w, o.h);
+        if (mode === 'cube') {
+          if (player.vy >= 0 && player.y + player.h <= o.y + 10 && collide(hit, top)) {
+            player.y = o.y - player.h;
+            player.vy = 0;
+            player.onGround = true;
+          }
+        } else {
+          if (collide(hit, top)) { endLose(); return; }
+        }
+      }
+      if (o.type === 'slope') {
+        const sx = player.x + player.w/2;
+        if (sx > o.x && sx < o.x + o.w && mode === 'cube') {
+          const t = (sx - o.x) / o.w;
+          const slopeH = o.h * (o.dir > 0 ? (1 - t) : t);
+          const yTop = o.y - slopeH;
+          if (player.y + player.h >= yTop - 4 && player.y + player.h <= yTop + 20 && player.vy >= 0) {
+            player.y = yTop - player.h;
+            player.vy = 0;
+            player.onGround = true;
+          }
+        } else if (collide(hit, rect(o.x, o.y - o.h, o.w, o.h))) {
+          if (mode !== 'cube') { endLose(); return; }
+        }
+      }
+      if (o.type === 'shipgate' || o.type === 'ballgate') {
+        const box = rect(o.x, o.y, o.w, o.h);
+        if (collide(hit, box)) { endLose(); return; }
+      }
+    }
+
+    if (player.y > canvas.height + 50 || player.y < -100) {
+      if (!practice) { endLose(); return; }
+      resetLevel(true);
+      startGame();
+    }
+  }
+
+  function drawBackground(){
+    const g = ctx.createLinearGradient(0,0,0,canvas.height);
+    g.addColorStop(0, bg[0]);
+    g.addColorStop(1, bg[1]);
+    ctx.fillStyle = g;
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    for(let i=0;i<12;i++){
+      ctx.fillStyle = 'rgba(255,255,255,.03)';
+      ctx.fillRect((i * 160 + (distance * 0.25) % 160) - 60, 80 + (i % 4) * 40, 80, 8);
+    }
   }
 
   function drawGround(){
@@ -99,119 +645,202 @@
     ctx.fillRect(0, y, canvas.width, canvas.height - y);
     ctx.fillStyle = '#22c55e';
     ctx.fillRect(0, y - 6, canvas.width, 6);
-    for (let i = 0; i < canvas.width; i += 40) {
-      ctx.fillStyle = 'rgba(255,255,255,.08)';
+    ctx.fillStyle = 'rgba(255,255,255,.08)';
+    for (let i = 0; i < canvas.width + 40; i += 40) {
       ctx.fillRect(i + (distance % 40), y + 10, 20, 3);
     }
   }
 
   function drawPlayer(){
+    const body = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || iconColor.value;
+    const acc = getComputedStyle(document.documentElement).getPropertyValue('--accent2').trim() || accentColor.value;
     ctx.save();
     ctx.translate(player.x + player.w/2, player.y + player.h/2);
     ctx.rotate(player.rot);
-    const grad = ctx.createLinearGradient(-18,-18,18,18);
-    grad.addColorStop(0, '#4cc9f0');
-    grad.addColorStop(1, '#4361ee');
-    ctx.fillStyle = grad;
-    ctx.fillRect(-player.w/2, -player.h/2, player.w, player.h);
-    ctx.fillStyle = 'rgba(255,255,255,.2)';
-    ctx.fillRect(-player.w/2+4, -player.h/2+4, player.w-8, 7);
+    ctx.fillStyle = 'rgba(0,0,0,.18)';
+    ctx.beginPath();
+    ctx.ellipse(0, player.h/2 + 7, player.w * 0.55, 7, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    if ((currentModeOverride || mode) === 'ship') {
+      ctx.fillStyle = body;
+      ctx.beginPath();
+      ctx.moveTo(-20, 10);
+      ctx.lineTo(18, 0);
+      ctx.lineTo(-20, -10);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = acc;
+      ctx.beginPath();
+      ctx.moveTo(6, 0);
+      ctx.lineTo(18, -7);
+      ctx.lineTo(18, 7);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,.28)';
+      ctx.fillRect(-12, -4, 10, 8);
+    } else if ((currentModeOverride || mode) === 'ball') {
+      ctx.fillStyle = body;
+      ctx.beginPath();
+      ctx.arc(0,0,18,0,Math.PI*2);
+      ctx.fill();
+      ctx.strokeStyle = acc;
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(0,0,12,0,Math.PI*2);
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,.2)';
+      ctx.beginPath();
+      ctx.arc(-6,-6,4,0,Math.PI*2);
+      ctx.fill();
+    } else {
+      ctx.fillStyle = body;
+      ctx.fillRect(-17,-17,34,34);
+      ctx.fillStyle = acc;
+      ctx.fillRect(-17,-17,34,7);
+      ctx.fillStyle = 'rgba(255,255,255,.18)';
+      ctx.fillRect(-13,-10,8,8);
+      ctx.fillRect(5,-10,8,8);
+    }
     ctx.restore();
   }
 
   function drawObstacle(o){
-    ctx.fillStyle = '#ff4d6d';
-    ctx.beginPath();
-    ctx.moveTo(o.x, o.y + o.h);
-    ctx.lineTo(o.x + o.w/2, o.y);
-    ctx.lineTo(o.x + o.w, o.y + o.h);
-    ctx.closePath();
-    ctx.fill();
-    ctx.fillStyle = 'rgba(255,255,255,.15)';
-    ctx.beginPath();
-    ctx.moveTo(o.x + 5, o.y + o.h - 4);
-    ctx.lineTo(o.x + o.w/2, o.y + 8);
-    ctx.lineTo(o.x + o.w - 5, o.y + o.h - 4);
-    ctx.closePath();
-    ctx.fill();
+    if (o.type === 'spike') {
+      ctx.fillStyle = '#ff4d6d';
+      ctx.beginPath();
+      ctx.moveTo(o.x, o.y + o.h);
+      ctx.lineTo(o.x + o.w/2, o.y);
+      ctx.lineTo(o.x + o.w, o.y + o.h);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,.16)';
+      ctx.beginPath();
+      ctx.moveTo(o.x + 4, o.y + o.h - 4);
+      ctx.lineTo(o.x + o.w/2, o.y + 7);
+      ctx.lineTo(o.x + o.w - 4, o.y + o.h - 4);
+      ctx.closePath();
+      ctx.fill();
+    } else if (o.type === 'platform') {
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillRect(o.x, o.y, o.w, o.h);
+      ctx.fillStyle = '#cbd5e1';
+      ctx.fillRect(o.x, o.y, o.w, 4);
+    } else if (o.type === 'slope') {
+      ctx.fillStyle = '#64748b';
+      ctx.beginPath();
+      if (o.dir > 0) {
+        ctx.moveTo(o.x, o.y);
+        ctx.lineTo(o.x + o.w, o.y);
+        ctx.lineTo(o.x + o.w, o.y - o.h);
+      } else {
+        ctx.moveTo(o.x, o.y);
+        ctx.lineTo(o.x + o.w, o.y);
+        ctx.lineTo(o.x, o.y - o.h);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = '#cbd5e1';
+      ctx.globalAlpha = 0.25;
+      ctx.fillRect(o.x, o.y - 4, o.w, 4);
+      ctx.globalAlpha = 1;
+    } else if (o.type === 'orb') {
+      ctx.fillStyle = '#ffd166';
+      ctx.beginPath();
+      ctx.arc(o.x, o.y, o.r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#fff3bf';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(o.x, o.y, o.r - 5, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,.35)';
+      ctx.beginPath();
+      ctx.arc(o.x - 5, o.y - 5, 4, 0, Math.PI*2);
+      ctx.fill();
+    } else if (o.type === 'shipgate') {
+      ctx.strokeStyle = 'rgba(76,201,240,.45)';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(o.x, o.y, o.w, o.h);
+    } else if (o.type === 'ballgate') {
+      ctx.strokeStyle = 'rgba(255,209,102,.4)';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(o.x, o.y, o.w, o.h);
+    }
   }
 
-  function update(){
-    if (!started || gameOver) return;
-
-    distance += speed;
-    score = Math.floor(distance / 12);
-    speed = 6 + Math.min(6, score / 80);
-    scoreEl.textContent = score + '%';
-    bestEl.textContent = 'Best: ' + best + '%';
-
-    player.vy += gravity;
-    player.y += player.vy;
-    player.rot += 0.08;
-    const floor = groundY() - player.h;
-    if (player.y >= floor) { player.y = floor; player.vy = 0; player.onGround = true; player.rot = 0; }
-
-    spawnTimer--;
-    if (spawnTimer <= 0) {
-      addObstacle();
-      spawnTimer = 70 + Math.random() * 50;
-    }
-
-    for (const o of obstacles) o.x -= speed;
-    while (obstacles.length && obstacles[0].x + obstacles[0].w < -20) obstacles.shift();
-
-    const hitbox = { x: player.x + 4, y: player.y + 4, w: player.w - 8, h: player.h - 8 };
-    for (const o of obstacles) {
-      const box = { x: o.x + 4, y: o.y + 2, w: o.w - 8, h: o.h - 2 };
-      if (collides(hitbox, box)) {
-        gameOver = true;
-        best = Math.max(best, score);
-        overlay.style.display = 'block';
-        overlay.querySelector('h1').textContent = 'Game Over';
-        overlay.querySelectorAll('p')[0].textContent = 'Score: ' + score + '%';
-        overlay.querySelectorAll('p')[1].textContent = 'Press Space or Click to restart.';
-        overlay.querySelector('.btn').textContent = 'Restart';
-      }
-    }
+  function drawParticles(){
+    particles.forEach(p => {
+      ctx.fillStyle = p.c;
+      ctx.globalAlpha = Math.max(0, p.life / 38);
+      ctx.fillRect(p.x, p.y, 4, 4);
+      ctx.globalAlpha = 1;
+    });
   }
 
   function render(){
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-    const bg = ctx.createLinearGradient(0,0,0,canvas.height);
-    bg.addColorStop(0, '#10131f');
-    bg.addColorStop(0.6, '#1b1f3a');
-    bg.addColorStop(1, '#0b1020');
-    ctx.fillStyle = bg;
-    ctx.fillRect(0,0,canvas.width,canvas.height);
-
-    for (let i = 0; i < 12; i++) {
-      ctx.fillStyle = 'rgba(255,255,255,.03)';
-      ctx.fillRect((i*140 + (distance*0.3)%140) - 40, 80 + (i%3)*35, 70, 8);
-    }
-
+    drawBackground();
     drawGround();
     obstacles.forEach(drawObstacle);
     drawPlayer();
+    drawParticles();
 
     if (!started && !gameOver) {
-      ctx.fillStyle = 'rgba(255,255,255,.6)';
+      ctx.fillStyle = 'rgba(255,255,255,.72)';
       ctx.font = '18px Arial';
       ctx.textAlign = 'center';
-      ctx.fillText('Click or press Space to begin', canvas.width/2, canvas.height*0.18);
+      ctx.fillText('Press Play or click to start', canvas.width / 2, canvas.height * 0.18);
     }
   }
 
-  function loop(){ update(); render(); requestAnimationFrame(loop); }
+  function loop(){
+    update();
+    render();
+    requestAnimationFrame(loop);
+  }
 
   addEventListener('keydown', e => {
-    if (e.code === 'Space' || e.code === 'ArrowUp') { e.preventDefault(); jump(); }
-    if (e.code === 'KeyR' && gameOver) reset();
+    if (e.code === 'Space' || e.code === 'ArrowUp') {
+      e.preventDefault();
+      jumpPressed = true;
+      jump();
+    }
+    if (e.code === 'KeyR' && gameOver) resetLevel(false);
+    if (e.code === 'Escape') menu.classList.remove('hidden');
   });
-  addEventListener('mousedown', jump);
-  addEventListener('touchstart', e => { e.preventDefault(); jump(); }, { passive:false });
-  overlay.addEventListener('click', jump);
+  addEventListener('keyup', e => { if (e.code === 'Space' || e.code === 'ArrowUp') jumpPressed = false; });
+  addEventListener('mousedown', () => { jumpPressed = true; jump(); });
+  addEventListener('mouseup', () => { jumpPressed = false; });
+  addEventListener('touchstart', e => { e.preventDefault(); jumpPressed = true; jump(); }, { passive:false });
+  addEventListener('touchend', () => { jumpPressed = false; });
 
-  reset();
+  playBtn.onclick = () => { practice = false; resetLevel(false); startGame(); };
+  practiceBtn.onclick = () => { practice = true; resetLevel(false); startGame(); };
+  retryBtn.onclick = () => { resetLevel(false); startGame(); };
+  menuBtn.onclick = () => { resetLevel(false); menu.classList.remove('hidden'); };
+  nextBtn.onclick = () => {
+    if (selectedLevel < LEVELS.length - 1) selectedLevel++;
+    setLevel(selectedLevel);
+    resetLevel(false);
+    startGame();
+  };
+
+  [iconShape, iconColor, accentColor, trailColor].forEach(el => {
+    el.addEventListener('input', () => {
+      currentModeOverride = iconShape.value;
+      modeLabel.textContent = 'Mode: ' + capitalize(currentModeOverride);
+      document.documentElement.style.setProperty('--accent', iconColor.value);
+      document.documentElement.style.setProperty('--accent2', accentColor.value);
+      document.documentElement.style.setProperty('--danger', trailColor.value);
+    });
+  });
+
+  renderLevelCards();
+  setLevel(0);
+  document.documentElement.style.setProperty('--accent', iconColor.value);
+  document.documentElement.style.setProperty('--accent2', accentColor.value);
+  document.documentElement.style.setProperty('--danger', trailColor.value);
+  resetLevel(false);
   loop();
 })();
 </script>
