@@ -6,9 +6,6 @@
 <title>Geometry Dash Plus</title>
 <style>
   :root{
-    --bg1:#0b1020;
-    --bg2:#11162a;
-    --line:rgba(255,255,255,.12);
     --accent:#4cc9f0;
     --accent2:#ffd166;
     --danger:#ff4d6d;
@@ -41,6 +38,8 @@
     padding:14px 16px;
     font-size:18px;
     text-shadow:0 2px 6px rgba(0,0,0,.7);
+    gap:10px;
+    flex-wrap:wrap;
   }
   .pill{
     background:rgba(0,0,0,.28);
@@ -49,21 +48,19 @@
     padding:8px 12px;
     backdrop-filter:blur(8px);
   }
-  .menu, .modal{
+  .menu{
     position:absolute;
     left:50%;
     top:50%;
     transform:translate(-50%,-50%);
     width:min(92vw, 860px);
     background:linear-gradient(180deg, rgba(14,19,36,.88), rgba(8,10,20,.82));
-    border:1px solid var(--line);
+    border:1px solid rgba(255,255,255,.12);
     border-radius:22px;
     box-shadow:0 20px 60px rgba(0,0,0,.45);
     backdrop-filter:blur(12px);
     pointer-events:auto;
     overflow:hidden;
-  }
-  .menu{
     opacity:1;
     transition:opacity .35s ease, transform .35s ease, filter .35s ease;
   }
@@ -282,7 +279,7 @@
           <label for="trailColor">Trail Color</label>
           <input id="trailColor" type="color" value="#ff4d6d" />
         </div>
-        <p class="small">Yellow orbs boost you upward when clicked while touching them. Slopes and platforms are included across levels, and the ship and ball each use their own movement style and sprite.</p>
+        <p class="small">Yellow orbs only appear in spike-jump sections, the ship behaves like Geometry Dash ship, portals switch modes, and ball gravity only flips when the ceiling rule allows it.</p>
       </div>
     </div>
   </div>
@@ -323,20 +320,16 @@
   const overTitle = document.getElementById('overTitle');
   const overText = document.getElementById('overText');
 
-  function resize() {
-    canvas.width = innerWidth;
-    canvas.height = innerHeight;
-  }
-  addEventListener('resize', resize);
-  resize();
+  function resize(){ canvas.width = innerWidth; canvas.height = innerHeight; }
+  addEventListener('resize', resize); resize();
 
   const LEVELS = [
-    { name:'Level 1', mode:'cube', speed:6, theme:['#101827','#1b2642'], platformGap:240, orbRate:0.07, slopeRate:0.10, shipRate:0.00, ballRate:0.00 },
-    { name:'Level 2', mode:'cube', speed:6.5, theme:['#0d1324','#202a4f'], platformGap:220, orbRate:0.08, slopeRate:0.12, shipRate:0.10, ballRate:0.10 },
-    { name:'Level 3', mode:'ship', speed:7, theme:['#0b1020','#16213f'], platformGap:200, orbRate:0.06, slopeRate:0.08, shipRate:0.35, ballRate:0.08 },
-    { name:'Level 4', mode:'ball', speed:7.5, theme:['#110b1f','#302053'], platformGap:190, orbRate:0.07, slopeRate:0.14, shipRate:0.08, ballRate:0.35 },
-    { name:'Level 5', mode:'cube', speed:8, theme:['#09111f','#2a1840'], platformGap:180, orbRate:0.10, slopeRate:0.16, shipRate:0.15, ballRate:0.12 },
-    { name:'Level 6', mode:'ship', speed:8.5, theme:['#08101d','#17354d'], platformGap:170, orbRate:0.08, slopeRate:0.12, shipRate:0.40, ballRate:0.12 }
+    { name:'Level 1', mode:'cube', speed:6.0, theme:['#101827','#1b2642'] },
+    { name:'Level 2', mode:'cube', speed:6.4, theme:['#162032','#243b5a'] },
+    { name:'Level 3', mode:'ship', speed:6.9, theme:['#0d1324','#25404f'] },
+    { name:'Level 4', mode:'ball', speed:7.2, theme:['#1a1027','#3a2458'] },
+    { name:'Level 5', mode:'cube', speed:7.8, theme:['#0e1f1c','#244b4a'] },
+    { name:'Level 6', mode:'ship', speed:8.2, theme:['#220f19','#4a2438'] }
   ];
 
   let selectedLevel = 0;
@@ -354,7 +347,7 @@
   let gravity = 0.7;
   let bg = LEVELS[0].theme;
   let spawnTimer = 0;
-  let progressTarget = 1000;
+  const progressTarget = 1000;
 
   const player = {
     x: 140, y: 0, w: 34, h: 34, vy: 0, rot: 0, onGround: true,
@@ -363,9 +356,13 @@
 
   const obstacles = [];
   const particles = [];
+  let spikeJumpCount = 0;
 
   function groundY(){ return canvas.height * 0.78; }
   function floorY(){ return groundY() - player.h; }
+  function capitalize(s){ return s.charAt(0).toUpperCase() + s.slice(1); }
+  function rect(x,y,w,h){ return {x,y,w,h}; }
+  function collide(a,b){ return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y; }
 
   function setLevel(i){
     selectedLevel = Math.max(0, Math.min(LEVELS.length - 1, i));
@@ -379,14 +376,12 @@
     renderLevelCards();
   }
 
-  function capitalize(s){ return s.charAt(0).toUpperCase() + s.slice(1); }
-
   function renderLevelCards(){
     levelGrid.innerHTML = '';
     LEVELS.forEach((lvl, i) => {
       const card = document.createElement('button');
       card.className = 'level-card';
-      card.innerHTML = `<strong>${lvl.name}</strong><span>${capitalize(lvl.mode)} sections, slopes, platforms, orbs, and progressive difficulty.</span>`;
+      card.innerHTML = `<strong>${lvl.name}</strong><span>${capitalize(lvl.mode)} sections, portals, slopes, platforms, and different colors.</span>`;
       card.onclick = () => setLevel(i);
       levelGrid.appendChild(card);
     });
@@ -405,6 +400,7 @@
     spawnTimer = 0;
     obstacles.length = 0;
     particles.length = 0;
+    spikeJumpCount = 0;
     player.y = floorY();
     player.vy = 0;
     player.rot = 0;
@@ -458,41 +454,69 @@
         player.vy = -13;
         player.onGround = false;
       }
-    } else if (mode === 'ball') {
-      player.ballGravityDown = !player.ballGravityDown;
-      player.vy = player.ballGravityDown ? 10 : -10;
     } else if (mode === 'ship') {
       player.shipVy = -9.5;
+    } else if (mode === 'ball') {
+      if (canFlipBall()) {
+        player.ballGravityDown = !player.ballGravityDown;
+        player.vy = player.ballGravityDown ? 10 : -10;
+      }
     }
+  }
+
+  function canFlipBall(){
+    const topCheck = rect(player.x, player.y - 20, player.w, 18);
+    for (const o of obstacles) {
+      if (o.type === 'ceiling' && collide(topCheck, rect(o.x, o.y, o.w, o.h))) return true;
+      if (o.type === 'portal_ball') return true;
+    }
+    return false;
+  }
+
+  function spikeCountAhead(xStart){
+    let count = 0;
+    for (const o of obstacles) {
+      if (o.type === 'spike' && o.x > xStart && o.x < xStart + 420) count++;
+    }
+    return count;
   }
 
   function spawnObstacle(){
     const lvl = LEVELS[selectedLevel];
     const x = canvas.width + 60 + Math.random() * 120;
-    const typeRoll = Math.random();
+    const roll = Math.random();
 
-    if (typeRoll < lvl.orbRate) {
-      obstacles.push({ type:'orb', x, y:groundY() - 95, r:16, used:false });
+    if (roll < 0.16) {
+      obstacles.push({ type:'portal_ship', x, y:groundY() - 140, w:44, h:100 });
       return;
     }
-    if (typeRoll < lvl.orbRate + lvl.slopeRate) {
-      const w = 120 + Math.random()*70;
-      const h = 48 + Math.random()*30;
+    if (roll < 0.30) {
+      obstacles.push({ type:'portal_ball', x, y:groundY() - 140, w:44, h:100 });
+      return;
+    }
+    if (roll < 0.54) {
+      const w = 130 + Math.random()*80;
+      obstacles.push({ type:'platform', x, y:groundY() - 85, w, h:18 });
+      obstacles.push({ type:'spikesUnder', x, y:groundY() - 18, w });
+      return;
+    }
+    if (roll < 0.75) {
+      const w = 140 + Math.random()*70;
+      const h = 46 + Math.random()*26;
       obstacles.push({ type:'slope', x, y:groundY(), w, h, dir:Math.random() < 0.5 ? 1 : -1 });
       return;
     }
-    if (typeRoll < lvl.orbRate + lvl.slopeRate + 0.28) {
-      const w = 120 + Math.random()*90;
-      const h = 18;
-      obstacles.push({ type:'platform', x, y:groundY() - 95, w, h });
-      obstacles.push({ type:'spikesUnder', x, y:groundY() - 8, w });
-      return;
-    }
-    obstacles.push({ type:'spike', x, y:groundY() - 34, w:34, h:34 });
-  }
 
-  function rect(x,y,w,h){ return {x,y,w,h}; }
-  function collide(a,b){ return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y; }
+    if (spikeCountAhead(x) < 4) {
+      const count = 1 + Math.floor(Math.random() * 4);
+      for (let i = 0; i < count; i++) {
+        obstacles.push({ type:'spike', x: x + i * 34, y:groundY() - 34, w:34, h:34 });
+      }
+      if (count >= 5 && count <= 6) {
+        obstacles.push({ type:'orb', x: x + 34 * Math.floor(count/2), y:groundY() - 78, r:16 });
+      }
+    }
+  }
 
   function addParticles(x,y,c,n=10){
     for(let i=0;i<n;i++) particles.push({ x,y, vx:(Math.random()-.5)*6, vy:(Math.random()-.8)*6, life:20+Math.random()*18, c });
@@ -516,7 +540,8 @@
   }
 
   function updateShip(){
-    player.shipVy += 0.42;
+    if (jumpPressed) player.shipVy -= 0.55;
+    else player.shipVy += 0.42;
     player.shipVy = Math.max(-10, Math.min(10, player.shipVy));
     player.y += player.shipVy;
     player.rot = Math.max(-0.6, Math.min(0.6, player.shipVy * 0.06));
@@ -556,7 +581,7 @@
     spawnTimer--;
     if (spawnTimer <= 0) {
       spawnObstacle();
-      spawnTimer = 50 + Math.random() * 35;
+      spawnTimer = 55 + Math.random() * 35;
     }
 
     obstacles.forEach(o => o.x -= speed);
@@ -571,14 +596,11 @@
         const dx = (player.x + player.w/2) - o.x;
         const dy = (player.y + player.h/2) - o.y;
         const dist = Math.hypot(dx, dy);
-        if (dist < 26) {
-          if (jumpPressed) {
-            if (mode === 'cube') player.vy = -15.5;
-            if (mode === 'ship') player.shipVy = -11.5;
-            if (mode === 'ball') player.ballGravityDown = !player.ballGravityDown;
-            o.used = true;
-            addParticles(o.x, o.y, getComputedStyle(document.documentElement).getPropertyValue('--accent2').trim() || '#ffd166', 12);
-          }
+        if (dist < 26 && jumpPressed) {
+          if (mode === 'cube') player.vy = -15.5;
+          if (mode === 'ship') player.shipVy = -11.5;
+          if (mode === 'ball') player.ballGravityDown = !player.ballGravityDown;
+          addParticles(o.x, o.y, '#ffd166', 12);
         }
       }
 
@@ -587,8 +609,7 @@
       }
 
       if (o.type === 'spikesUnder') {
-        const spikeRect = rect(o.x, o.y, o.w, 18);
-        if (collide(hit, spikeRect)) { endLose(); return; }
+        if (collide(hit, rect(o.x, o.y, o.w, 18))) { endLose(); return; }
       }
 
       if (o.type === 'platform') {
@@ -620,6 +641,16 @@
         if (collide(hit, rect(o.x, o.y - o.h, o.w, o.h)) && mode !== 'cube') {
           endLose(); return;
         }
+      }
+
+      if (o.type === 'portal_ship' && collide(hit, rect(o.x, o.y, o.w, o.h))) {
+        mode = 'ship';
+        modeLabel.textContent = 'Mode: Ship';
+      }
+
+      if (o.type === 'portal_ball' && collide(hit, rect(o.x, o.y, o.w, o.h))) {
+        mode = 'ball';
+        modeLabel.textContent = 'Mode: Ball';
       }
     }
 
@@ -734,17 +765,18 @@
       ctx.beginPath();
       ctx.arc(o.x, o.y, o.r, 0, Math.PI * 2);
       ctx.fill();
+    } else if (o.type === 'portal_ship' || o.type === 'portal_ball') {
+      ctx.strokeStyle = o.type === 'portal_ship' ? '#4cc9f0' : '#ffd166';
+      ctx.lineWidth = 5;
+      ctx.strokeRect(o.x, o.y, o.w, o.h);
+      ctx.fillStyle = o.type === 'portal_ship' ? 'rgba(76,201,240,.15)' : 'rgba(255,209,102,.15)';
+      ctx.fillRect(o.x, o.y, o.w, o.h);
     }
   }
 
   function render(){
     ctx.clearRect(0,0,canvas.width,canvas.height);
-    const g = ctx.createLinearGradient(0,0,0,canvas.height);
-    g.addColorStop(0, bg[0]);
-    g.addColorStop(1, bg[1]);
-    ctx.fillStyle = g;
-    ctx.fillRect(0,0,canvas.width,canvas.height);
-
+    drawBackground();
     drawGround();
     obstacles.forEach(drawObstacle);
     drawPlayer();
